@@ -98,7 +98,9 @@ async function summary(uid: string) {
 }
 
 account.get('/me', async (req, res) => {
-  const u = await me(req, { requireProfile: false });
+  let u = await me(req, { requireProfile: false });
+  // Profiles created before fields became required must be completed before they appear again.
+  if (u.onboarded && !isComplete(u)) u = (await q<UserRow>('UPDATE users SET onboarded=false WHERE id=$1 RETURNING *', [u.id])).rows[0];
   res.json({ user: privateProfile(u), missing: missingFields(u), ...(await summary(u.id)) });
 });
 account.get('/me/counts', async (req, res) => {
