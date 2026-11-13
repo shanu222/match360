@@ -215,6 +215,15 @@ CREATE TABLE IF NOT EXISTS admin_audit (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+ALTER TABLE requests ADD COLUMN IF NOT EXISTS liked_prompt TEXT NOT NULL DEFAULT '';
+CREATE TABLE IF NOT EXISTS profile_views (
+  viewer_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  viewed_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  viewed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (viewer_id, viewed_id)
+);
+CREATE INDEX IF NOT EXISTS profile_views_viewed_idx ON profile_views (viewed_id, viewed_at DESC);
+
 CREATE TABLE IF NOT EXISTS email_log (
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   key TEXT NOT NULL,

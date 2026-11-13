@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { Check, ChevronDown, Clock, Send, X } from 'lucide-react';
 import { api, ApiError, errMsg } from '../lib/api';
-import type { QuizResult, QuizStart } from '../lib/types';
+import type { Profile, QuizResult, QuizStart } from '../lib/types';
 import { useToast } from '../context/Toast';
 import { Avatar, Modal, ScoreStamp, Spinner } from '../components/ui';
 import { LogoMark } from '../components/Logo';
@@ -75,15 +75,15 @@ export default function Quiz() {
         if (e.code === 'cooldown')
           return setPhase({
             k: 'blocked',
-            title: 'Challenge on cooldown',
-            text: `You can retake this challenge ${new Date(e.data.retryAt).toLocaleString([], { weekday: 'long', hour: 'numeric', minute: '2-digit' })}.`,
+            title: 'Try again later',
+            text: `You can try again ${new Date(e.data.retryAt).toLocaleString([], { weekday: 'long', hour: 'numeric', minute: '2-digit' })}.`,
             action: { label: 'Keep exploring', to: '/discover' },
           });
         if (e.code === 'daily_limit')
           return setPhase({ k: 'blocked', title: 'Daily limit reached', text: e.message, action: e.data?.premium ? { label: 'Back to Discover', to: '/discover' } : { label: 'See Premium', to: '/premium' } });
         if (e.code === 'they_requested_you')
-          return setPhase({ k: 'blocked', title: 'They already challenged you!', text: e.message, action: { label: 'Open Challenges', to: '/challenges' } });
-        return setPhase({ k: 'blocked', title: 'Can’t start this challenge', text: e.message, action: { label: 'Back to Discover', to: '/discover' } });
+          return setPhase({ k: 'blocked', title: 'They already want to connect with you', text: e.message, action: { label: 'Open requests', to: '/requests' } });
+        return setPhase({ k: 'blocked', title: 'Can’t continue right now', text: e.message, action: { label: 'Back to Discover', to: '/discover' } });
       }
       setPhase({ k: 'blocked', title: 'Something went wrong', text: errMsg(e) });
     }
@@ -144,7 +144,7 @@ export default function Quiz() {
             )}
           </div>
         )}
-        {phase.k === 'result' && <Result res={phase.res} target={phase.target} onSent={(score, name) => setPhase({ k: 'sent', score, name })} />}
+        {phase.k === 'result' && <Result res={phase.res} target={phase.target} targetId={id} onSent={(score, name) => setPhase({ k: 'sent', score, name })} />}
         {phase.k === 'sent' && (
           <div className="flex flex-1 animate-rise flex-col items-center justify-center text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-cobalt text-white"><Send size={28} /></div>
@@ -153,7 +153,7 @@ export default function Quiz() {
               {phase.name} will see your score of <b className="text-ink">{phase.score}%</b>. To accept, they’ll answer questions about you, and we’ll let you know when they do.
             </p>
             <div className="mt-8 flex gap-3">
-              <Link to="/challenges" className="btn btn-ghost">View sent</Link>
+              <Link to="/requests" className="btn btn-ghost">View sent</Link>
               <Link to="/discover" className="btn btn-primary">Keep exploring</Link>
             </div>
           </div>
@@ -241,10 +241,10 @@ function Runner({ quiz, onDone }: { quiz: QuizStart; onDone: (answers: number[])
   return (
     <>
       <div className="flex items-center gap-3">
-        <button onClick={() => setLeave(true)} aria-label="Leave challenge" className="flex h-10 w-10 items-center justify-center rounded-xl border border-rule bg-card text-slate hover:text-ink"><X size={19} /></button>
+        <button onClick={() => setLeave(true)} aria-label="Leave" className="flex h-10 w-10 items-center justify-center rounded-xl border border-rule bg-card text-slate hover:text-ink"><X size={19} /></button>
         <Avatar src={quiz.target.photo} name={quiz.target.firstName} className="h-10 w-10" rounded="rounded-xl" />
         <div className="min-w-0 flex-1">
-          <div className="truncate font-semibold">{quiz.purpose === 'accept' ? `Answer to accept ${quiz.target.firstName}` : `${quiz.target.firstName}’s challenge`}</div>
+          <div className="truncate font-semibold">{quiz.purpose === 'accept' ? `How well do you know ${quiz.target.firstName}?` : `How well do you know ${quiz.target.firstName}?`}</div>
           <div className="text-sm text-slate">Question {i + 1} of {total}</div>
         </div>
         <div className={clsx('font-display text-2xl font-bold tabular-nums', pct > 0.25 ? 'text-ink' : 'text-wrong')} aria-label={`${left} seconds left`}>
@@ -278,7 +278,7 @@ function Runner({ quiz, onDone }: { quiz: QuizStart; onDone: (answers: number[])
       </div>
       <p className="text-center text-sm text-slate">On a keyboard, press A to D. Answers are scored when you finish.</p>
 
-      <Modal open={leave} onClose={() => setLeave(false)} title="Leave the challenge?">
+      <Modal open={leave} onClose={() => setLeave(false)} title="Leave now?">
         <p className="text-slate">Your answers so far will be submitted and unanswered questions count as wrong.</p>
         <div className="mt-6 grid grid-cols-2 gap-3">
           <button className="btn btn-ghost" onClick={() => setLeave(false)}>Keep going</button>
@@ -289,7 +289,9 @@ function Runner({ quiz, onDone }: { quiz: QuizStart; onDone: (answers: number[])
   );
 }
 
-function Result({ res, target, onSent }: { res: QuizResult; target: QuizStart['target'] | null; onSent: (score: number, name: string) => void }) {
+function Result({ res, target, targetId, onSent }: { res: QuizResult; target: QuizStart['target'] | null; targetId: string; onSent: (score: number, name: string) => void }) {
+  const [liked, setLiked] = useState('');
+  const other = useQuery({ queryKey: ['user', targetId], queryFn: () => api.get<{ profile: Profile }>(`/users/${targetId}`), enabled: res.purpose === 'request' });
   const nav = useNavigate();
   const qc = useQueryClient();
   const toast = useToast();
@@ -302,7 +304,7 @@ function Result({ res, target, onSent }: { res: QuizResult; target: QuizStart['t
   const send = async () => {
     setBusy(true);
     try {
-      await api.post('/requests', { attemptId: res.attemptId, note: note.trim() });
+      await api.post('/requests', { attemptId: res.attemptId, note: note.trim(), likedPrompt: liked });
       ['requests', 'discover', 'user', 'me'].forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
       onSent(res.score, name);
     } catch (e) {
@@ -345,6 +347,24 @@ function Result({ res, target, onSent }: { res: QuizResult; target: QuizStart['t
       <div className="mt-auto w-full pt-8">
         {res.purpose === 'request' ? (
           <>
+            {other.data && other.data.profile.prompts.length > 0 && (
+              <>
+                <div className="label">Which of {name}’s answers did you like most? <span className="font-normal text-slate">(optional)</span></div>
+                <div className="space-y-2">
+                  {other.data.profile.prompts.map((p) => (
+                    <button
+                      key={p.q}
+                      type="button"
+                      onClick={() => setLiked(liked === p.q ? '' : p.q)}
+                      className={clsx('w-full rounded-xl border p-3 text-left transition-colors', liked === p.q ? 'border-cobalt bg-cobalt-soft' : 'border-rule bg-card hover:border-cobalt/50')}
+                    >
+                      <div className="text-xs text-slate">{p.q}</div>
+                      <div className="font-semibold">{p.a}</div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             <label className="label" htmlFor="note">Add a note <span className="font-normal text-slate">(optional)</span></label>
             <textarea id="note" className="input min-h-[90px] resize-none" maxLength={250} value={note} onChange={(e) => setNote(e.target.value)} placeholder={`Mention something from ${name}’s profile`} />
             <button className="btn btn-primary mt-4 w-full py-4 text-base" onClick={send} disabled={busy}>
@@ -355,7 +375,7 @@ function Result({ res, target, onSent }: { res: QuizResult; target: QuizStart['t
         ) : res.matchId ? (
           <button className="btn btn-primary w-full py-4 text-base" onClick={() => nav(`/chats/${res.matchId}`, { replace: true })}>Open chat</button>
         ) : (
-          <button className="btn btn-ghost w-full" onClick={() => nav('/challenges')}>Back to Challenges</button>
+          <button className="btn btn-ghost w-full" onClick={() => nav('/requests')}>Back to requests</button>
         )}
       </div>
     </div>

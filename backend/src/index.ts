@@ -9,7 +9,7 @@ import { migrate, pool } from './db.js';
 import { initFirebase, requireAuth } from './auth.js';
 import { errorHandler } from './http.js';
 import { initRealtime } from './realtime.js';
-import { account, citiesHandler, countriesHandler, metaHandler } from './routes/account.js';
+import { account, citiesHandler, countriesHandler, metaHandler, resetHandler, resetLimiter } from './routes/account.js';
 import { admin, adminEnabled } from './routes/admin.js';
 import { social } from './routes/social.js';
 
@@ -44,6 +44,7 @@ app.use(
 app.get('/api/meta', metaHandler);
 app.get('/api/geo/countries', countriesHandler);
 app.get('/api/geo/cities', citiesHandler);
+app.post('/api/auth/reset', resetLimiter, resetHandler);
 // Admin API — separate credentials, never linked from the app. Responds 404 when not configured.
 app.use('/api/admin', (req, res, next) => {
   res.set('Cache-Control', 'no-store');

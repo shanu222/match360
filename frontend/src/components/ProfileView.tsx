@@ -12,7 +12,13 @@ export function PhotoCarousel({ p, className }: { p: Profile; className?: string
   return (
     <div className={clsx('relative overflow-hidden bg-rule', className)}>
       {n ? (
-        <img src={p.photos[Math.min(i, n - 1)]} alt={p.photosBlurred ? `${p.firstName}’s photo, blurred` : p.name} className="h-full w-full object-cover" draggable={false} />
+        <img
+          src={p.photos[Math.min(i, n - 1)]}
+          alt={p.photosBlurred ? `${p.firstName}’s photo, blurred` : p.name}
+          className={clsx('h-full w-full object-cover', p.photosBlurred && 'scale-110 blur-2xl')}
+          draggable={false}
+          onContextMenu={(e) => p.photosBlurred && e.preventDefault()}
+        />
       ) : (
         <Avatar name={p.name} className="h-full w-full" rounded="rounded-none" />
       )}

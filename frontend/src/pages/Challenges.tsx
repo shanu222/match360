@@ -8,7 +8,6 @@ import { scoreTone, timeAgo } from '../lib/format';
 import type { RequestItem } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/Toast';
-import { ChallengeIntro } from '../components/ChallengeIntro';
 import { Avatar, EmptyState, ErrorState, Modal, Spinner, Verified } from '../components/ui';
 
 export default function Challenges() {
@@ -18,8 +17,8 @@ export default function Challenges() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="text-3xl font-bold tracking-tight">Challenges</h1>
-      <p className="mt-1 text-slate">Every connection here was earned with a score.</p>
+      <h1 className="text-3xl font-bold tracking-tight">Requests</h1>
+      <p className="mt-1 text-slate">Everyone here read a profile before reaching out.</p>
       <div className="mt-6 grid grid-cols-2 rounded-2xl border border-rule bg-card p-1">
         {(['received', 'sent'] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)} className={clsx('rounded-xl py-2.5 text-sm font-bold capitalize transition', tab === t ? 'bg-cobalt text-white' : 'text-slate hover:text-ink')}>
@@ -37,12 +36,12 @@ export default function Challenges() {
           q.data!.received.length ? (
             <div className="space-y-3">{q.data!.received.map((r) => <Received key={r.id} r={r} />)}</div>
           ) : (
-            <EmptyState icon={<Inbox size={32} />} title="No requests yet" text="When someone takes your challenge, their score and request appear here. A complete profile with great prompts attracts more." action={<Link to="/me" className="btn btn-ghost">Improve my profile</Link>} />
+            <EmptyState icon={<Inbox size={32} />} title="No requests yet" text="When someone reads your profile and answers questions about you, their request appears here. A complete profile with great prompts attracts more." action={<Link to="/me" className="btn btn-ghost">Improve my profile</Link>} />
           )
         ) : q.data!.sent.length ? (
           <div className="space-y-3">{q.data!.sent.map((r) => <Sent key={r.id} r={r} />)}</div>
         ) : (
-          <EmptyState icon={<Send size={30} />} title="No challenges sent" text="Find someone interesting and prove you paid attention." action={<Link to="/discover" className="btn btn-primary">Discover people</Link>} />
+          <EmptyState icon={<Send size={30} />} title="No requests sent" text="Find someone interesting, read their profile, and connect." action={<Link to="/discover" className="btn btn-primary">Discover people</Link>} />
         )}
       </div>
     </div>
@@ -54,7 +53,6 @@ function Received({ r }: { r: RequestItem }) {
   const qc = useQueryClient();
   const toast = useToast();
   const nav = useNavigate();
-  const [intro, setIntro] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const decline = useMutation({
     mutationFn: () => api.post(`/requests/${r.id}/decline`),
@@ -81,13 +79,19 @@ function Received({ r }: { r: RequestItem }) {
         <span className={clsx('rounded-full px-3 py-1.5 text-sm font-bold', scoreTone(r.senderScore))}>{r.senderScore}%</span>
       </div>
       <p className="mt-3 text-sm text-slate">
-        Scored <b className="text-ink">{r.senderScore}%</b> on your challenge{r.senderScore >= bar ? `, above your ${bar}% bar.` : `, below your ${bar}% bar.`}{' '}<span className="whitespace-nowrap">{timeAgo(r.createdAt) === 'just now' ? 'Just now' : `${timeAgo(r.createdAt)} ago`}</span>
+        Got <b className="text-ink">{r.senderScore}%</b> of the questions about you right{r.senderScore >= bar ? `, above your ${bar}% bar.` : `, below your ${bar}% bar.`}{' '}<span className="whitespace-nowrap">{timeAgo(r.createdAt) === 'just now' ? 'Just now' : `${timeAgo(r.createdAt)} ago`}</span>
       </p>
+      {r.likedPrompt && (
+        <div className="mt-3 rounded-xl border border-marker bg-marker/25 px-4 py-3 text-sm">
+          <span className="text-slate">Liked your answer to “{r.likedPrompt}”</span>
+          {r.likedAnswer && <div className="mt-0.5 font-semibold">{r.likedAnswer}</div>}
+        </div>
+      )}
       {r.note && <p className="mt-3 rounded-2xl bg-paper px-4 py-3 text-[15px] leading-relaxed text-slate">“{r.note}”</p>}
       {r.status === 'pending' ? (
         <div className="mt-4 grid grid-cols-[1fr_1.6fr] gap-2.5">
           <button className="btn btn-ghost py-3" onClick={() => setConfirm(true)}>Decline</button>
-          <button className="btn btn-primary py-3" onClick={() => setIntro(true)}><Zap size={17} className="fill-white" /> Accept via quiz</button>
+          <button className="btn btn-primary py-3" onClick={() => nav(`/u/${u.id}?accept=1`)}>Read profile and accept</button>
         </div>
       ) : r.status === 'accepted' ? (
         <div className="mt-4 flex items-center justify-between">
@@ -97,7 +101,6 @@ function Received({ r }: { r: RequestItem }) {
       ) : (
         <div className="mt-4 text-sm font-semibold capitalize text-slate">{r.status}</div>
       )}
-      {intro && <ChallengeIntro open onClose={() => setIntro(false)} user={u} purpose="accept" theirScore={r.senderScore} />}
       <Modal open={confirm} onClose={() => setConfirm(false)} title={`Decline ${u.firstName}?`}>
         <p className="text-slate">They won’t get a notification. Their request will show as not accepted.</p>
         <div className="mt-6 grid grid-cols-2 gap-3">

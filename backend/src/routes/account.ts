@@ -8,10 +8,11 @@ import {
 import { ageFrom, isComplete, isPremium, missingFields, privateProfile, publicProfile, type UserRow } from '../profiles.js';
 import { ALLOWED_TYPES, MAX_UPLOAD_BYTES, deletePhotos, deletePrivate, isOwnPhotoUrl, isOwnPrivateKey, signPhotoUpload, signPrivateUpload } from '../storage.js';
 import { r2Enabled } from '../config.js';
-import { clearStatusCache, deleteFirebaseUser, forgetUser } from '../auth.js';
+import { actionLink, clearStatusCache, deleteFirebaseUser, forgetUser } from '../auth.js';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { citiesOf, countries, countryName, isCityOf, isCountry, nearestCity } from '../geo.js';
 import { getSetting } from '../settings.js';
-import { emails } from '../email.js';
+import { emails, sendAuthEmail } from '../email.js';
 import { isBlocked, isUuid, loadUser, me, param, visibleUser } from './common.js';
 
 export const account = Router();
@@ -56,6 +57,63 @@ account.post('/me/location', async (req, res) => {
 account.delete('/me/location', async (req, res) => {
   await q('UPDATE users SET lat=NULL, lng=NULL, location_updated_at=NULL WHERE id=$1', [req.user.uid]);
   res.json({ ok: true });
+});
+
+/* ---------- sign-in emails sent from our own domain (better inbox delivery than Firebase defaults) ---------- */
+const authMailLimiter = rateLimit({ windowMs: 60 * 60_000, limit: 5, keyGenerator: (req: any) => req.user?.uid || ipKeyGenerator(req.ip || ''), standardHeaders: true, legacyHeaders: false, message: { error: 'Too many emails requested. Try again in an hour.' } });
+account.post('/me/verify-email', authMailLimiter, async (req, res) => {
+  if (!req.user.email) throw bad('Your account has no email address');
+  if (req.user.emailVerified) return res.json({ ok: true, alreadyVerified: true });
+  try {
+    await sendAuthEmail(req.user.email, 'verify', await actionLink('verify', req.user.email));
+  } catch (e: any) {
+    throw new HttpError(503, 'We couldn’t send the email from our server', 'email_unavailable', { detail: e?.message });
+  }
+  res.json({ ok: true });
+});
+export const resetLimiter = authMailLimiter;
+/** Public: always answers ok so it can't be used to discover which emails have accounts. */
+export const resetHandler = async (req: any, res: any) => {
+  const { email } = parse(z.object({ email: z.string().email().max(200) }), req.body);
+  try {
+    await sendAuthEmail(email.trim().toLowerCase(), 'reset', await actionLink('reset', email.trim().toLowerCase()));
+  } catch (e: any) {
+    if (e?.code === 'email_unavailable' || /not configured/i.test(e?.message || '')) return res.status(503).json({ error: 'Email unavailable', code: 'email_unavailable' });
+    // user-not-found and similar: say nothing
+  }
+  res.json({ ok: true });
+};
+
+/** Adds blurred copies to photos uploaded before blur existed (or fixes missing ones). */
+account.post('/me/photos/blur', async (req, res) => {
+  const { pairs } = parse(z.object({ pairs: z.array(z.object({ url: z.string().url(), blurUrl: z.string().url() })).max(6) }), req.body);
+  const u = await me(req, { requireProfile: false });
+  const blurred = u.photos.map((url, i) => {
+    const pr = pairs.find((x) => x.url === url);
+    if (pr && pr.blurUrl !== url && isOwnPhotoUrl(u.id, pr.blurUrl)) return pr.blurUrl;
+    const cur = u.photos_blurred[i];
+    return cur && cur !== url ? cur : '';
+  });
+  const r = await q<UserRow>('UPDATE users SET photos_blurred=$2 WHERE id=$1 RETURNING *', [u.id, blurred]);
+  res.json({ user: privateProfile(r.rows[0]) });
+});
+
+/* ---------- who viewed me ---------- */
+account.get('/views', async (req, res) => {
+  const u = await me(req);
+  const r = await q<UserRow & { viewed_at: Date; total: number }>(
+    `SELECT v.viewed_at, u.*, count(*) OVER()::int AS total FROM profile_views v JOIN users u ON u.id=v.viewer_id
+     WHERE v.viewed_id=$1 AND v.viewed_at > now() - interval '30 days' AND u.status='active' AND u.onboarded
+       AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id=$1 AND b.blocked_id=u.id) OR (b.blocker_id=u.id AND b.blocked_id=$1))
+     ORDER BY v.viewed_at DESC LIMIT 50`,
+    [u.id],
+  );
+  const premium = isPremium(u);
+  res.json({
+    total: r.rows[0]?.total || 0,
+    premium,
+    viewers: premium ? r.rows.map((x) => ({ viewedAt: x.viewed_at, user: publicProfile(x, u) })) : [],
+  });
 });
 
 /* ---------- public config for the app (plans, payments, ads) ---------- */
@@ -154,7 +212,8 @@ account.put('/me', async (req, res) => {
     if (!known && (!isOwnPhotoUrl(cur.id, ph.url) || !isOwnPhotoUrl(cur.id, ph.blurUrl))) throw bad('Invalid photo', 'validation');
   }
   const photos = p.photos.map((x) => x.url);
-  const blurred = p.photos.map((x) => x.blurUrl);
+  // A blurred copy must be a different file; otherwise store none (and blurred viewers see no photo).
+  const blurred = p.photos.map((x) => (x.blurUrl && x.blurUrl !== x.url ? x.blurUrl : ''));
 
   const r = await q<UserRow>(
     `UPDATE users SET name=$2, dob=$3, gender=$4, interested_in=$5, country=$6, city=$7, hometown=$8, job=$9, company=$10, industry=$11,
@@ -301,6 +360,9 @@ account.get('/users/:id', async (req, res) => {
   const viewer = await me(req);
   const u = await visibleUser(viewer.id, param(req, 'id'));
   const rel = await relation(viewer, u.id);
+  if (!viewer.incognito) {
+    q(`INSERT INTO profile_views (viewer_id, viewed_id) VALUES ($1,$2) ON CONFLICT (viewer_id, viewed_id) DO UPDATE SET viewed_at=now()`, [viewer.id, u.id]).catch(() => {});
+  }
   res.json({ profile: publicProfile(u, viewer, { connected: rel.type === 'matched' }), relation: rel });
 });
 

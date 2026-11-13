@@ -12,6 +12,7 @@ import {
 import { Eye, EyeOff, MailCheck } from 'lucide-react';
 import { auth, firebaseConfigured, friendlyAuthError, googleProvider, preferRedirect, testAuthEnabled } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../lib/api';
 import { Logo } from '../components/Logo';
 import { Spinner } from '../components/ui';
 
@@ -57,10 +58,15 @@ export default function Auth({ mode }: { mode: Mode }) {
       } else if (mode === 'signup') {
         const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
         if (name.trim()) await updateProfile(cred.user, { displayName: name.trim() }).catch(() => {});
-        sendEmailVerification(cred.user).catch(() => {});
+        // Sent from our own domain via the API (better inbox delivery); Firebase’s email is the fallback.
+        api.post('/me/verify-email').catch(() => sendEmailVerification(cred.user).catch(() => {}));
         nav('/onboarding');
       } else {
-        await sendPasswordResetEmail(auth, email.trim());
+        try {
+          await api.post('/auth/reset', { email: email.trim() });
+        } catch {
+          await sendPasswordResetEmail(auth, email.trim());
+        }
         setSent(true);
       }
     } catch (e: any) {
@@ -101,7 +107,7 @@ export default function Auth({ mode }: { mode: Mode }) {
   const shownErr = err || (redirectError ? friendlyAuthError(redirectError) : '');
   const title = mode === 'login' ? 'Sign in' : mode === 'signup' ? 'Create your account' : 'Reset your password';
   const sub =
-    mode === 'login' ? 'Welcome back. Your challenges and chats are waiting.' : mode === 'signup' ? 'It takes about two minutes to set up your profile.' : 'Enter your email and we’ll send you a link to set a new password.';
+    mode === 'login' ? 'Welcome back. Your requests and chats are waiting.' : mode === 'signup' ? 'It takes about two minutes to set up your profile.' : 'Enter your email and we’ll send you a link to set a new password.';
 
   return (
     <div className="flex min-h-dvh flex-col bg-paper">

@@ -18,7 +18,7 @@ function QuestionCard() {
   const correct = picked === SAMPLE.answer;
   return (
     <div className="relative mx-auto w-full max-w-[420px]">
-      {/* stacked cards behind: the rest of the challenge */}
+      {/* stacked cards behind: the rest of the questions */}
       <div className="absolute inset-x-6 -bottom-3 top-3 rounded-2xl border border-rule bg-card" aria-hidden />
       <div className="absolute inset-x-3 -bottom-1.5 top-1.5 rounded-2xl border border-rule bg-card" aria-hidden />
       <div className="relative rounded-2xl border border-rule bg-card p-6 shadow-lift sm:p-7">
@@ -57,7 +57,7 @@ function QuestionCard() {
         </div>
         <p className="mt-5 min-h-[44px] text-sm leading-relaxed text-slate" aria-live="polite">
           {!done
-            ? 'Try it. This is what a Match360 challenge feels like.'
+            ? 'Try it. This is what connecting on Match360 feels like.'
             : correct
               ? 'Right. Hira wrote that in her profile, and you noticed. That attention is what your score shows her.'
               : 'Not quite. On Match360, your score tells people how closely you read about them.'}
@@ -70,7 +70,7 @@ function QuestionCard() {
 const steps = [
   ['Write a profile people can learn from', 'Photos, interests and three short answers in your own words. Those answers become the questions people must get right.'],
   ['Answer five questions about them', 'Each question is built from their profile and timed. Your score is attached to your request.'],
-  ['They answer five about you', 'To accept, they take your challenge. You see their score too, and only then can you message each other.'],
+  ['They answer five about you', 'To accept, they answer questions about you. You both see how well the other listened, and only then can you message each other.'],
 ];
 
 const details = [
@@ -143,7 +143,7 @@ export default function Landing() {
 
       <section className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
         <div className="flex flex-col items-start justify-between gap-6 rounded-2xl bg-ink px-7 py-10 text-white sm:flex-row sm:items-center sm:px-10">
-          <h2 className="max-w-[20ch] text-3xl font-bold leading-tight">Your profile becomes your challenge.</h2>
+          <h2 className="max-w-[20ch] text-3xl font-bold leading-tight">Be known before you say hello.</h2>
           <Link to="/signup" className="btn shrink-0 bg-marker px-6 py-3.5 text-base text-ink hover:brightness-95">Create your profile</Link>
         </div>
       </section>

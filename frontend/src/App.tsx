@@ -80,10 +80,12 @@ export default function App() {
         <Route path="/delete-account" element={<Legal kind="delete-account" />} />
         {ADMIN_PATH.length >= 6 && <Route path={`/${ADMIN_PATH}/*`} element={<AdminApp base={`/${ADMIN_PATH}`} />} />}
         <Route path="/onboarding" element={<Private allowIncomplete><OnboardingGate /></Private>} />
+        <Route path="/connect/:id" element={<Private><Quiz /></Private>} />
         <Route path="/challenge/:id" element={<Private><Quiz /></Private>} />
         <Route element={<Private><AppShell /></Private>}>
           <Route path="/discover" element={<Discover />} />
-          <Route path="/challenges" element={<Challenges />} />
+          <Route path="/requests" element={<Challenges />} />
+          <Route path="/challenges" element={<Navigate to="/requests" replace />} />
           <Route path="/chats" element={<Chats />} />
           <Route path="/chats/:id" element={<Chats />} />
           <Route path="/u/:id" element={<UserPage />} />

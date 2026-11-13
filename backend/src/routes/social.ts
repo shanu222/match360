@@ -13,7 +13,7 @@ import { isBlocked, isUuid, loadUser, me, param, visibleUser } from './common.js
 export const social = Router();
 
 const byUser = (req: any) => req.user?.uid || ipKeyGenerator(req.ip || '');
-const quizLimiter = rateLimit({ windowMs: 10 * 60_000, limit: 30, keyGenerator: byUser, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many challenges — take a short break.' } });
+const quizLimiter = rateLimit({ windowMs: 10 * 60_000, limit: 30, keyGenerator: byUser, standardHeaders: true, legacyHeaders: false, message: { error: 'You’re connecting very fast. Take a short break.' } });
 const msgLimiter = rateLimit({ windowMs: 60_000, limit: 40, keyGenerator: byUser, standardHeaders: true, legacyHeaders: false, message: { error: 'You’re sending messages too fast.' } });
 
 const HOUR = 3600_000;
@@ -68,11 +68,11 @@ social.post('/quiz/start', quizLimiter, async (req, res) => {
     if (!last.submitted_at && new Date(last.expires_at).getTime() > now) return res.json(clientQuiz(last, target));
     if (purpose === 'request') {
       if (last.submitted_at && now - new Date(last.submitted_at).getTime() < SEND_WINDOW)
-        throw conflict('You already finished this challenge', 'ready_to_send', { attemptId: last.id, score: last.score });
+        throw conflict('You already answered these questions', 'ready_to_send', { attemptId: last.id, score: last.score });
       const limits = await getSetting('limits');
       const hours = isPremium(viewer) ? limits.premiumRetakeHours : limits.freeRetakeHours;
       const retryAt = new Date(new Date(last.started_at).getTime() + hours * HOUR);
-      if (retryAt.getTime() > now) throw conflict('You can retake this challenge later', 'cooldown', { retryAt });
+      if (retryAt.getTime() > now) throw conflict('You can try again later', 'cooldown', { retryAt });
     }
   }
 
@@ -83,7 +83,7 @@ social.post('/quiz/start', quizLimiter, async (req, res) => {
     const used = (await q(`SELECT count(*)::int AS n FROM quiz_attempts WHERE taker_id=$1 AND purpose='request' AND started_at > now() - interval '24 hours'`, [viewer.id])).rows[0].n;
     if (used >= cap)
       throw conflict(
-        premium ? `You’ve taken ${cap} challenges in the last 24 hours. Try again later.` : `Free accounts can take ${cap} challenges a day. Upgrade to Premium for more, or try again tomorrow.`,
+        premium ? `You’ve sent ${cap} connection requests in the last 24 hours. Try again later.` : `Free accounts can connect with ${cap} people a day. Upgrade to Premium for more, or try again tomorrow.`,
         'daily_limit',
         { premium },
       );
@@ -94,7 +94,7 @@ social.post('/quiz/start', quizLimiter, async (req, res) => {
   const job = (async () => {
 
     const { questions, source } = await buildQuiz(target);
-    if (questions.length < 3) throw bad('This profile does not have enough details for a challenge yet', 'profile_too_thin');
+    if (questions.length < 3) throw bad('This profile doesn’t have enough details yet', 'profile_too_thin');
     const seconds = questions.length * SECONDS_PER_QUESTION + 30;
     const r = await q(
       `INSERT INTO quiz_attempts (taker_id, target_id, purpose, questions, expires_at, source)
@@ -115,13 +115,13 @@ const submitSchema = z.object({ answers: z.array(z.number().int().min(-1).max(3)
 
 social.post('/quiz/:id/submit', async (req, res) => {
   const id = param(req, 'id');
-  if (!isUuid(id)) throw notFound('Challenge not found');
+  if (!isUuid(id)) throw notFound('Not found');
   const { answers } = parse(submitSchema, req.body);
   const viewer = await me(req);
 
   const result = await tx(async (c) => {
     const at = (await c.query('SELECT * FROM quiz_attempts WHERE id=$1 AND taker_id=$2 FOR UPDATE', [id, viewer.id])).rows[0];
-    if (!at) throw notFound('Challenge not found');
+    if (!at) throw notFound('Not found');
     const qs: StoredQuestion[] = at.questions;
     if (at.submitted_at) return { at, qs, fresh: false };
     const late = Date.now() > new Date(at.expires_at).getTime() + 30_000;
@@ -174,24 +174,24 @@ social.post('/quiz/:id/submit', async (req, res) => {
 
 /* ---------------- REQUESTS ---------------- */
 
-const sendSchema = z.object({ attemptId: z.string().uuid(), note: z.string().trim().max(250).default('') });
+const sendSchema = z.object({ attemptId: z.string().uuid(), note: z.string().trim().max(250).default(''), likedPrompt: z.string().max(120).default('') });
 
 social.post('/requests', async (req, res) => {
   const viewer = await me(req);
-  const { attemptId, note } = parse(sendSchema, req.body);
+  const { attemptId, note, likedPrompt: liked } = parse(sendSchema, req.body);
   const at = (await q(`SELECT * FROM quiz_attempts WHERE id=$1 AND taker_id=$2 AND purpose='request'`, [attemptId, viewer.id])).rows[0];
-  if (!at || !at.submitted_at) throw bad('Finish the challenge before sending a request', 'quiz_incomplete');
-  if (Date.now() - new Date(at.submitted_at).getTime() > SEND_WINDOW) throw conflict('This challenge result has expired. You can retake it later.', 'attempt_expired');
+  if (!at || !at.submitted_at) throw bad('Answer the questions before sending a request', 'quiz_incomplete');
+  if (Date.now() - new Date(at.submitted_at).getTime() > SEND_WINDOW) throw conflict('This result has expired. You can try again later.', 'attempt_expired');
   const target = await visibleUser(viewer.id, at.target_id);
 
   let row;
   try {
     row = (
       await q(
-        `INSERT INTO requests (sender_id, receiver_id, attempt_id, sender_score, note)
-         SELECT $1,$2,$3,$4,$5 WHERE NOT EXISTS (SELECT 1 FROM requests WHERE sender_id=$2 AND receiver_id=$1)
+        `INSERT INTO requests (sender_id, receiver_id, attempt_id, sender_score, note, liked_prompt)
+         SELECT $1,$2,$3,$4,$5,$6 WHERE NOT EXISTS (SELECT 1 FROM requests WHERE sender_id=$2 AND receiver_id=$1)
          RETURNING *`,
-        [viewer.id, target.id, at.id, at.score, note],
+        [viewer.id, target.id, at.id, at.score, note, (target.prompts || []).some((p) => p.q === liked) ? liked : ''],
       )
     ).rows[0];
   } catch (e: any) {
@@ -201,7 +201,7 @@ social.post('/requests', async (req, res) => {
   if (!row) throw conflict(`${target.name.split(' ')[0]} already sent you a request — accept it instead`, 'they_requested_you');
 
   const first = viewer.name.split(' ')[0];
-  void notify(target.id, 'request', `${first} scored ${at.score}% on your challenge and wants to connect`, viewer.id, row.id);
+  void notify(target.id, 'request', `${first} read your profile, got ${at.score}% right and wants to connect`, viewer.id, row.id);
   emails.newRequest(target.id, first, at.score);
   emit(target.id, 'request:new', { requestId: row.id });
   res.json({ request: { id: row.id, status: row.status, score: row.sender_score } });
@@ -225,7 +225,9 @@ social.get('/requests', async (req, res) => {
     status: r.request_status,
     senderScore: r.sender_score,
     receiverScore: r.receiver_score,
-    note: dir === 'received' ? r.note : r.note,
+    note: r.note,
+    likedPrompt: r.liked_prompt || '',
+    likedAnswer: r.liked_prompt ? ((dir === 'received' ? viewer : r).prompts || []).find((p: any) => p.q === r.liked_prompt)?.a || '' : '',
     createdAt: r.request_created_at,
     respondedAt: r.responded_at,
     user: publicProfile(r as UserRow, viewer, { connected: r.request_status === 'accepted' }),

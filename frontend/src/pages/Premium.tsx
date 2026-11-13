@@ -58,9 +58,10 @@ export default function PremiumPage() {
 
   const perks = [
     'No ads anywhere in the app',
-    `${c.limits.premiumDailyChallenges} challenges a day instead of ${c.limits.freeDailyChallenges}`,
-    `Retake a challenge after ${c.limits.premiumRetakeHours} hours instead of ${c.limits.freeRetakeHours}`,
+    `Connect with ${c.limits.premiumDailyChallenges} people a day instead of ${c.limits.freeDailyChallenges}`,
+    `Try again after ${c.limits.premiumRetakeHours} hours instead of ${c.limits.freeRetakeHours}`,
     'Your profile is shown earlier in Discover',
+    'See who viewed your profile',
     'A Premium label on your profile',
   ];
 
@@ -70,7 +71,7 @@ export default function PremiumPage() {
       {c.premium ? (
         <p className="mt-2 text-slate">Premium is active until <b className="text-ink">{new Date(c.premiumUntil!).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}</b>. You can extend it below.</p>
       ) : (
-        <p className="mt-2 text-slate">Free accounts see ads and can take {c.limits.freeDailyChallenges} challenges a day. Premium removes the limits.</p>
+        <p className="mt-2 text-slate">Free accounts see ads and can connect with {c.limits.freeDailyChallenges} people a day. Premium removes the limits.</p>
       )}
 
       <ul className="mt-6 grid gap-2 sm:grid-cols-2">

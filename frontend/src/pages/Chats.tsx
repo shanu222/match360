@@ -2,7 +2,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 
 import { Link, useNavigate, useParams } from 'react-router';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { AlertCircle, ArrowLeft, Check, CheckCheck, MessageCircle, MoreVertical, Search, SendHorizontal, ShieldAlert, UserRound, UserX } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Check, CheckCheck, MessageCircle, MoreVertical, Search, SendHorizontal, ShieldAlert, Shuffle, UserRound, UserX } from 'lucide-react';
 import { api, errMsg } from '../lib/api';
 import { clock, dayLabel, timeAgo, uid } from '../lib/format';
 import { emitSocket, onSocket } from '../lib/socket';
@@ -26,7 +26,7 @@ export default function Chats() {
           <Conversation key={id} matchId={id} />
         ) : (
           <div className="card hidden h-full items-center justify-center lg:flex">
-            <EmptyState icon={<MessageCircle size={32} />} title="Your conversations" text="Pick a chat on the left. Only people who passed each other’s challenge can message here." />
+            <EmptyState icon={<MessageCircle size={32} />} title="Your conversations" text="Pick a chat on the left. Only people who connected with each other can message here." />
           </div>
         )}
       </div>
@@ -48,7 +48,7 @@ function ChatList({ activeId }: { activeId?: string }) {
       ) : q.isError ? (
         <ErrorState message={errMsg(q.error)} onRetry={() => q.refetch()} />
       ) : !q.data!.matches.length ? (
-        <EmptyState icon={<MessageCircle size={32} />} title="No connections yet" text="Chats unlock once you and someone else pass each other’s challenge." action={<Link to="/discover" className="btn btn-primary">Find people</Link>} />
+        <EmptyState icon={<MessageCircle size={32} />} title="No connections yet" text="Chats open once you and someone else connect." action={<Link to="/discover" className="btn btn-primary">Find people</Link>} />
       ) : (
         <>
           <div className="relative mt-5">
@@ -95,6 +95,25 @@ function ChatList({ activeId }: { activeId?: string }) {
     </div>
   );
 }
+
+const DEEP_QUESTIONS = [
+  'What’s something you’re proud of that most people don’t know about?',
+  'What did you want to be when you were ten?',
+  'What does a perfect Sunday look like for you?',
+  'Which place has felt most like home to you?',
+  'What’s a small thing that always makes your day better?',
+  'What are you learning or trying to get better at right now?',
+  'Who has influenced you the most, and how?',
+  'What’s a belief you held strongly that you’ve changed your mind about?',
+  'What would you do with a free month and no obligations?',
+  'What’s the best advice you’ve ever been given?',
+  'What do your friends come to you for?',
+  'What’s a book, film or song that stayed with you?',
+  'What does a good friendship look like to you?',
+  'What’s one goal you have for the next year?',
+  'Chai or coffee, and how do you take it?',
+  'What’s a tradition from your family you’d like to keep?',
+];
 
 function icebreakers(p: Profile) {
   const out: string[] = [];
@@ -363,6 +382,18 @@ function Conversation({ matchId }: { matchId: string }) {
         </div>
       )}
 
+      <div className="flex justify-start px-3 pt-1 lg:px-5">
+        <button
+          type="button"
+          onClick={() => {
+            setText(DEEP_QUESTIONS[Math.floor(Math.random() * DEEP_QUESTIONS.length)]);
+            input.current?.focus();
+          }}
+          className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold text-cobalt hover:bg-cobalt-soft"
+        >
+          <Shuffle size={13} /> Suggest a question
+        </button>
+      </div>
       <form
         onSubmit={(e) => {
           e.preventDefault();

@@ -12,7 +12,7 @@ import { Avatar, FullScreenLoader, Modal, Spinner, Toggle } from '../components/
 import { Link } from 'react-router';
 
 export default function SettingsPage() {
-  const { me, fbUser, signOut, refetchMe } = useAuth();
+  const { me, fbUser, signOut, refetchMe, refreshEmailStatus } = useAuth();
   const cfg = useConfig();
   const [locBusy, setLocBusy] = useState(false);
   const qc = useQueryClient();
@@ -60,21 +60,44 @@ export default function SettingsPage() {
         <Link to="/me/edit" className="btn btn-ghost px-4 py-2 text-sm">Edit</Link>
       </section>
 
-      {!u.verified && fbUser && (
-        <section className="card flex flex-col gap-3 border-marker p-5 sm:flex-row sm:items-center">
-          <div className="flex-1 text-sm text-slate"><b className="text-ink">Verify your email</b> to get the verified badge and appear in “Verified” filters.</div>
-          <button
-            className="btn btn-ghost px-4 py-2 text-sm"
-            onClick={() =>
-              sendEmailVerification(fbUser)
-                .then(() => toast({ title: 'Verification email sent', body: 'Check your inbox, then sign in again.', tone: 'success' }))
-                .catch(() => toast({ title: 'Please wait a bit before requesting another email', tone: 'error' }))
-            }
-          >
-            Send link
-          </button>
+      {fbUser && (
+        <section className="card flex flex-col gap-3 p-5 sm:flex-row sm:items-center">
+          <Mail size={20} className={u.emailVerified ? 'text-right' : 'text-cobalt'} />
+          <div className="flex-1 text-sm">
+            {u.emailVerified ? (
+              <><b>Email confirmed.</b> <span className="text-slate">{u.email}</span></>
+            ) : (
+              <><b>Confirm your email.</b> <span className="text-slate">We sent a link to {u.email}. Check your inbox and spam folder. If it’s in spam, mark it “Not spam” so you get future messages.</span></>
+            )}
+          </div>
+          {!u.emailVerified && (
+            <div className="flex gap-2">
+              <button
+                className="btn btn-ghost px-4 py-2 text-sm"
+                onClick={async () => {
+                  const ok = await refreshEmailStatus();
+                  toast(ok ? { title: 'Email confirmed', tone: 'success' } : { title: 'Not confirmed yet', body: 'Open the link in the email first, then try again.', tone: 'error' });
+                }}
+              >
+                I’ve confirmed it
+              </button>
+              <button
+                className="btn btn-ghost px-4 py-2 text-sm"
+                onClick={() =>
+                  api
+                    .post('/me/verify-email')
+                    .catch(() => sendEmailVerification(fbUser))
+                    .then(() => toast({ title: 'Email sent', body: `Check ${u.email}, including spam.`, tone: 'success' }))
+                    .catch(() => toast({ title: 'Please wait a few minutes before asking again', tone: 'error' }))
+                }
+              >
+                Send again
+              </button>
+            </div>
+          )}
         </section>
       )}
+
 
       <section className="card divide-y divide-rule px-5">
         <Link to="/verify" className="flex items-center gap-4 py-4">
@@ -89,7 +112,7 @@ export default function SettingsPage() {
           <Crown size={20} className="text-cobalt" />
           <div className="flex-1">
             <div className="font-semibold">Premium</div>
-            <div className="text-sm text-slate">{cfg.data?.premium ? `Active until ${new Date(cfg.data.premiumUntil!).toLocaleDateString()}` : 'Remove ads and take more challenges'}</div>
+            <div className="text-sm text-slate">{cfg.data?.premium ? `Active until ${new Date(cfg.data.premiumUntil!).toLocaleDateString()}` : 'Remove ads and connect with more people'}</div>
           </div>
           <ChevronRight size={18} className="text-slate" />
         </Link>
@@ -135,21 +158,21 @@ export default function SettingsPage() {
             <button className="btn btn-quiet px-3 py-2 text-sm" onClick={() => api.del('/me/location').then(() => { refetchMe(); toast({ title: 'Location removed', tone: 'success' }); })}>Remove</button>
           )}
         </div>
-        <Row title="Email notifications" text="Only for new challenge requests, new connections and messages while you’re away.">
+        <Row title="Email notifications" text="Only for connection requests, new matches and messages while you’re away.">
           <Toggle label="Email notifications" on={u.emailNotifications} onChange={(v) => save.mutate({ emailNotifications: v })} />
         </Row>
-        <Row title="Incognito mode" text="Hide from Discover. Only people you challenge can see you.">
+        <Row title="Incognito mode" text="Hide from Discover. Only people you reach out to can see you.">
           <Toggle label="Incognito mode" on={u.incognito} onChange={(v) => save.mutate({ incognito: v })} />
         </Row>
         <div className="py-5">
-          <div className="flex items-center justify-between font-bold"><span>Challenge bar</span><span className="text-cobalt">{bar}%</span></div>
+          <div className="flex items-center justify-between font-bold"><span>Score you hope for</span><span className="text-cobalt">{bar}%</span></div>
           <input
             type="range"
             min={0}
             max={100}
             step={5}
             value={bar}
-            aria-label="Challenge bar"
+            aria-label="Score you hope for"
             onChange={(e) => setThreshold(Number(e.target.value))}
             onPointerUp={() => threshold !== null && save.mutate({ threshold })}
             onKeyUp={() => threshold !== null && save.mutate({ threshold })}
@@ -188,7 +211,7 @@ export default function SettingsPage() {
       </p>
 
       <Modal open={del} onClose={() => setDel(false)} title="Delete your account?">
-        <p className="text-slate">This permanently deletes your profile, photos, challenges, connections and messages. This can’t be undone.</p>
+        <p className="text-slate">This permanently deletes your profile, photos, requests, connections and messages. This can’t be undone.</p>
         <label className="label">Type <b className="text-ink">DELETE</b> to confirm</label>
         <input className="input" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} autoComplete="off" />
         <div className="mt-6 grid grid-cols-2 gap-3">

@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { ensureBlurCopies } from '../lib/blurRepair';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { Bell, Compass, Crown, MessageCircle, Settings, UserRound, Zap } from 'lucide-react';
+import { Bell, Compass, Crown, Inbox, MessageCircle, Settings, UserRound } from 'lucide-react';
 import { api } from '../lib/api';
 import { timeAgo } from '../lib/format';
 import type { Counts, Notification } from '../lib/types';
@@ -13,7 +14,7 @@ import { Realtime } from './Realtime';
 
 const NAV = [
   { to: '/discover', label: 'Discover', icon: Compass, count: null as null | keyof Counts },
-  { to: '/challenges', label: 'Challenges', icon: Zap, count: 'pendingRequests' as const },
+  { to: '/requests', label: 'Requests', icon: Inbox, count: 'pendingRequests' as const },
   { to: '/chats', label: 'Chats', icon: MessageCircle, count: 'unreadMessages' as const },
   { to: '/me', label: 'Profile', icon: UserRound, count: null },
 ];
@@ -31,6 +32,15 @@ export function AppShell() {
   const counts = countsQ.data;
   const inChat = /^\/chats\/[^/]+/.test(loc.pathname);
   const user = me!.user;
+  const repaired = useRef(false);
+  const qc = useQueryClient();
+  useEffect(() => {
+    if (repaired.current || !user.photos.length) return;
+    repaired.current = true;
+    ensureBlurCopies(user)
+      .then((u) => u && qc.invalidateQueries({ queryKey: ['me'] }))
+      .catch(() => {});
+  }, [user, qc]);
 
   return (
     <div className="min-h-dvh lg:pl-72">
@@ -140,13 +150,13 @@ function Notifications({ open, onClose }: { open: boolean; onClose: () => void }
       <div className="mt-4 space-y-2">
         {q.isLoading && <div className="flex justify-center py-10"><Spinner /></div>}
         {q.isError && <p className="py-8 text-center text-slate">Couldn’t load notifications.</p>}
-        {q.data && !q.data.notifications.length && <p className="py-10 text-center text-slate">You’re all caught up. Challenge requests and new connections will show here.</p>}
+        {q.data && !q.data.notifications.length && <p className="py-10 text-center text-slate">You’re all caught up. Connection requests and new matches will show here.</p>}
         {q.data?.notifications.map((n) => (
           <button
             key={n.id}
             onClick={() => {
               close();
-              nav(n.type === 'accepted' && n.ref_id ? `/chats/${n.ref_id}` : '/challenges');
+              nav(n.type === 'accepted' && n.ref_id ? `/chats/${n.ref_id}` : '/requests');
             }}
             className={clsx('flex w-full items-center gap-3 rounded-2xl p-3 text-left transition hover:bg-paper', !n.read && 'bg-card')}
           >

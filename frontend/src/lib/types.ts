@@ -132,6 +132,8 @@ export interface RequestItem {
   senderScore: number;
   receiverScore: number | null;
   note: string;
+  likedPrompt: string;
+  likedAnswer: string;
   createdAt: string;
   respondedAt: string | null;
   user: Profile;

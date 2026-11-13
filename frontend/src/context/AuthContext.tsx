@@ -14,6 +14,7 @@ interface Ctx {
   meLoading: boolean;
   meError: unknown;
   redirectError: string;
+  refreshEmailStatus: () => Promise<boolean>;
   refetchMe: () => void;
   signOut: () => Promise<void>;
   testSignIn: (email: string) => void;
@@ -52,6 +53,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     else disconnectSocket();
   }, [status]);
 
+  /** Firebase only reports a confirmed email after the user record is reloaded and a fresh token is issued. */
+  const refreshEmailStatus = async () => {
+    const u = auth?.currentUser;
+    if (!u) return false;
+    try {
+      await u.reload();
+      if (u.emailVerified) {
+        await u.getIdToken(true);
+        await qc.invalidateQueries({ queryKey: ['me'] });
+      }
+      return u.emailVerified;
+    } catch {
+      return false;
+    }
+  };
+  useEffect(() => {
+    if (status !== 'signedIn') return;
+    const check = () => {
+      if (document.visibilityState === 'visible' && auth?.currentUser && !auth.currentUser.emailVerified) void refreshEmailStatus();
+    };
+    check();
+    window.addEventListener('focus', check);
+    document.addEventListener('visibilitychange', check);
+    return () => {
+      window.removeEventListener('focus', check);
+      document.removeEventListener('visibilitychange', check);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
   const meQ = useQuery({
     queryKey: ['me'],
     queryFn: () => api.get<MeResponse>('/me'),
@@ -68,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       meLoading: meQ.isLoading,
       meError: meQ.error,
       redirectError,
+      refreshEmailStatus,
       refetchMe: () => void meQ.refetch(),
       signOut: async () => {
         disconnectSocket();

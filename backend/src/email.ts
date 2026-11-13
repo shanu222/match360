@@ -8,7 +8,9 @@ if (!resend) console.warn('[email] RESEND_API_KEY missing — email notification
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 function layout(title: string, bodyHtml: string, ctaText: string, ctaPath: string) {
-  const url = `${config.appUrl}${ctaPath}`;
+  return layoutLink(title, bodyHtml, ctaText, `${config.appUrl}${ctaPath}`);
+}
+function layoutLink(title: string, bodyHtml: string, ctaText: string, url: string) {
   return `<!DOCTYPE html><html><body style="margin:0;background:#F5F6FA;font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#101935">
   <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 12px"><tr><td align="center">
   <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #DDE1EC">
@@ -44,6 +46,17 @@ async function throttle(userId: string, key: string, windowMinutes: number) {
   return (r.rowCount ?? 0) > 0;
 }
 
+/** For sign-in emails (verify, reset): sent straight to the address, ignoring notification preferences. */
+export async function sendAuthEmail(to: string, kind: 'verify' | 'reset', link: string) {
+  if (!resend) throw new Error('Email is not configured');
+  const html =
+    kind === 'verify'
+      ? layoutLink('Confirm your email', '<p>Tap the button to confirm this email address for your Match360 account.</p><p>If you didn’t create an account, you can ignore this email.</p>', 'Confirm email', link)
+      : layoutLink('Reset your password', '<p>Tap the button to choose a new password. The link expires in one hour.</p><p>If you didn’t ask for this, you can ignore this email; your password won’t change.</p>', 'Choose a new password', link);
+  const { error } = await resend.emails.send({ from: config.resend.from, to, subject: kind === 'verify' ? 'Confirm your email for Match360' : 'Reset your Match360 password', html });
+  if (error) throw new Error(error.message);
+}
+
 async function send(userId: string, subject: string, html: string, throttleKey?: string, windowMinutes = 0) {
   if (!resend) return;
   try {
@@ -64,12 +77,12 @@ export const emails = {
   newRequest(toId: string, fromName: string, score: number) {
     void send(
       toId,
-      `${fromName} took your challenge and scored ${score}%`,
+      `${fromName} wants to connect with you`,
       layout(
         `${fromName} wants to connect`,
-        `<p><b>${esc(fromName)}</b> answered questions about your profile and scored <b>${score}%</b>.</p><p>To accept, take a short quiz about ${esc(fromName)} — your score is shared back with them.</p>`,
+        `<p><b>${esc(fromName)}</b> read your profile, answered questions about you and got <b>${score}%</b> right.</p><p>To accept, read ${esc(fromName)}’s profile and answer a few questions about them. Your result is shared back.</p>`,
         'Review request',
-        '/challenges',
+        '/requests',
       ),
     );
   },
@@ -79,7 +92,7 @@ export const emails = {
       `You're connected with ${byName}`,
       layout(
         `${byName} accepted your request`,
-        `<p><b>${esc(byName)}</b> scored <b>${theirScore}%</b> on your profile challenge. You can now message each other.</p>`,
+        `<p><b>${esc(byName)}</b> answered questions about you and got <b>${theirScore}%</b> right. You can now message each other.</p>`,
         'Say hello',
         `/chats/${matchId}`,
       ),
@@ -89,7 +102,7 @@ export const emails = {
     void send(
       toId,
       'Welcome to Match360',
-      layout(`Welcome, ${name}`, p('Your profile is live. Browse people, read their profiles carefully, and take a challenge when someone stands out.') + p('Tip: verified profiles get more requests. You can verify your identity from Settings.'), 'Start exploring', '/discover'),
+      layout(`Welcome, ${name}`, p('Your profile is live. Browse people, read their profiles carefully, and connect when someone stands out.') + p('Tip: verified profiles get more requests. You can verify your identity from Settings.'), 'Start exploring', '/discover'),
     );
   },
   verification(toId: string, approved: boolean, note: string) {

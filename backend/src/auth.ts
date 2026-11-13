@@ -50,6 +50,12 @@ export async function verifyToken(token: string): Promise<AuthUser> {
   }
 }
 
+export async function actionLink(kind: 'verify' | 'reset', email: string) {
+  if (!firebaseReady) throw new HttpError(503, 'Authentication is not configured on the server', 'auth_unavailable');
+  const settings = { url: `${config.appUrl}/settings` };
+  return kind === 'verify' ? getAuth().generateEmailVerificationLink(email, settings) : getAuth().generatePasswordResetLink(email, { url: `${config.appUrl}/login` });
+}
+
 export async function deleteFirebaseUser(uid: string) {
   if (!firebaseReady) return;
   await getAuth().deleteUser(uid).catch((e) => console.warn('[auth] deleteUser failed', e?.message));

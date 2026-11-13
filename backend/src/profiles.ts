@@ -104,7 +104,8 @@ export function publicProfile(u: UserRow, viewer: UserRow | null, opts: { connec
     religion: u.religion,
     smoking: u.smoking,
     drinking: u.drinking,
-    photos: blurred ? (u.photos_blurred.length === u.photos.length ? u.photos_blurred : []) : u.photos,
+    // Never fall back to a clear photo while blur is on.
+    photos: blurred ? (u.photos_blurred.length === u.photos.length && u.photos_blurred.every((b, i) => b && b !== u.photos[i]) ? u.photos_blurred : []) : u.photos,
     photosBlurred: blurred,
     verified: u.id_verified,
     premium: isPremium(u),

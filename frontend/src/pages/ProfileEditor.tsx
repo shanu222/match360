@@ -72,7 +72,7 @@ function Editor({ mode, user, meta, defaultName, onSignOut }: { mode: 'onboardin
       languages: user.languages || 'Urdu, English',
       intent: user.intent || '', interests: user.interests || [], bio: user.bio || '', heightCm: user.heightCm ? String(user.heightCm) : '',
       maritalStatus: user.maritalStatus || '', children: user.children || '', religion: user.religion || '', smoking: user.smoking || '', drinking: user.drinking || '',
-      prompts, photos: (user.photos || []).map((url, i) => ({ url, blurUrl: user.photosBlur?.[i] || url })), photoBlur: user.photoBlur, threshold: user.threshold ?? 60,
+      prompts, photos: (user.photos || []).map((url, i) => ({ url, blurUrl: user.photosBlur?.[i] && user.photosBlur[i] !== url ? user.photosBlur[i] : '' })), photoBlur: user.photoBlur, threshold: user.threshold ?? 60,
     };
   }, [user, meta, defaultName]);
   const [f, setF] = useState<Form>(initial);
@@ -81,6 +81,28 @@ function Editor({ mode, user, meta, defaultName, onSignOut }: { mode: 'onboardin
   useEffect(() => {
     top.current?.scrollIntoView({ block: 'start' });
   }, [step]);
+
+  // Older photos may not have a blurred copy yet; make one so blur always works.
+  useEffect(() => {
+    const missing = f.photos.filter((p) => !p.blurUrl);
+    if (!missing.length) return;
+    let cancelled = false;
+    (async () => {
+      for (const p of missing) {
+        try {
+          const res = await fetch(p.url, { mode: 'cors', cache: 'no-store' });
+          const up = await uploadBlob('photo', await makeBlurred(await res.blob()));
+          if (!cancelled && up.publicUrl) setF((x) => ({ ...x, photos: x.photos.map((y) => (y.url === p.url ? { ...y, blurUrl: up.publicUrl! } : y)) }));
+        } catch {
+          /* leave it; the server never shows a clear photo in place of a blurred one */
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const upload = async (files: FileList | null) => {
     if (!files?.length) return;
@@ -196,7 +218,7 @@ function Editor({ mode, user, meta, defaultName, onSignOut }: { mode: 'onboardin
               if (ph)
                 return (
                   <div key={ph.url} className="relative aspect-[3/4] overflow-hidden rounded-xl border border-rule bg-rule">
-                    <img src={f.photoBlur ? ph.blurUrl : ph.url} alt="" className="h-full w-full object-cover" />
+                    <img src={f.photoBlur && ph.blurUrl ? ph.blurUrl : ph.url} alt="" className={clsx('h-full w-full object-cover', f.photoBlur && 'scale-110 blur-xl')} />
                     {i === 0 && <span className="absolute left-2 top-2 rounded-md bg-white px-2 py-0.5 text-[11px] font-semibold">Main</span>}
                     <div className="absolute inset-x-2 bottom-2 flex justify-end gap-1.5">
                       {i > 0 && (
