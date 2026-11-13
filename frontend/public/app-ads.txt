@@ -1,0 +1,3 @@
+# Replace pub-0000000000000000 with your AdMob publisher ID (AdMob > Settings > Account information).
+# This file must also be served from https://sustainablesolution360.com/app-ads.txt (the developer website on your Play listing).
+google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0

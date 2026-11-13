@@ -145,7 +145,7 @@ export default function Discover() {
           />
         ) : (
           <>
-            <div className="relative h-[calc(100dvh-340px)] min-h-[380px] lg:h-[calc(100dvh-230px)]">
+            <div className="relative h-[calc(100dvh-340px-var(--ad-h,0px))] min-h-[380px] lg:h-[calc(100dvh-230px)]">
               {nextP && (
                 <div className="card absolute inset-0 translate-y-3 scale-[.96] overflow-hidden opacity-50" aria-hidden>
                   <ProfileView p={nextP} heroClass="h-[62%]" />

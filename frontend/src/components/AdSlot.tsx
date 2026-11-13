@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router';
 import { useConfig } from '../lib/config';
+import { isAndroidApp } from '../lib/platform';
 
 declare global {
   interface Window { adsbygoogle?: unknown[] }
@@ -23,7 +24,8 @@ export function AdSlot({ slot, className }: { slot: 'slotDiscover' | 'slotChats'
   const ref = useRef<HTMLModElement>(null);
   const ads = cfg.data?.ads;
   const slotId = ads?.[slot];
-  const show = Boolean(cfg.data && !cfg.data.premium && ads?.enabled && ads.adsenseClient && slotId);
+  // The Android app uses AdMob (components/AdBanner.tsx); AdSense is never loaded there.
+  const show = !isAndroidApp && Boolean(cfg.data && !cfg.data.premium && ads?.enabled && ads.adsenseClient && slotId);
 
   useEffect(() => {
     if (!show || !ads) return;

@@ -13,7 +13,33 @@
     <link rel="apple-touch-icon" href="/logo-192.png" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Shown until the app starts; replaced by React. Becomes an error screen if the bundle fails to load. -->
+      <div id="boot" style="display:flex;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;background:#F5F6FA;color:#101935;font-family:system-ui,sans-serif">
+        <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 20.5a14 14 0 0 1 0 23a14 14 0 0 1 0-23z" fill="#FFD84D"/><circle cx="24" cy="32" r="14" fill="none" stroke="#2541D8" stroke-width="4.5"/><circle cx="40" cy="32" r="14" fill="none" stroke="#2541D8" stroke-width="4.5"/></svg>
+        <div id="boot-error" hidden>
+          <h1 style="margin:0 0 8px;font-size:22px">Match360 couldn’t start</h1>
+          <p style="margin:0 0 20px;color:#5B6478;max-width:300px">Something failed to load. Check your connection and try again.</p>
+          <button onclick="location.reload()" style="border:0;border-radius:12px;background:#2541D8;color:#fff;font-size:15px;font-weight:600;padding:12px 24px">Try again</button>
+        </div>
+      </div>
+    </div>
+    <script>
+      (function () {
+        function fail() {
+          var e = document.getElementById('boot-error');
+          if (e && !window.__m360Booted) e.hidden = false;
+        }
+        // A script or stylesheet of the bundle failed to load.
+        window.addEventListener('error', function (ev) {
+          var t = ev.target;
+          if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) fail();
+        }, true);
+        // The bundle threw before it could render anything.
+        window.addEventListener('error', function (ev) { if (ev.error) fail(); });
+        setTimeout(fail, 12000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

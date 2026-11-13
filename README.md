@@ -130,3 +130,33 @@ npm install && npm run dev            # http://localhost:5173
 - If the realtime connection drops, it reconnects automatically and refreshes chats and counts. Counts are also polled as a fallback.
 - Quiz progress is saved in the browser tab, so a page refresh resumes the same questions. If submitting fails, the answers are kept and can be resubmitted.
 - The server validates every input, rate-limits requests (especially quizzes and messages), creates the database tables on boot, and shuts down cleanly.
+
+## Android app (Capacitor)
+
+The Android app bundles the web build (`frontend/dist`) inside a Capacitor shell. Package: `com.sustainablesolution360.match360`. The app's origin is `https://localhost`, which must be listed in `FRONTEND_ORIGIN` on the backend.
+
+Files that are **not** in git and must exist locally:
+
+| File | What it is |
+| --- | --- |
+| `frontend/.env.android` | Build-time values (copy `.env.android.example`). Never set `VITE_ADMIN_PATH` here. |
+| `frontend/android/app/google-services.json` | From Firebase console > Project settings > Android app. Needed for Google sign-in. |
+| `frontend/android/keystore.properties` | `storeFile`, `storePassword`, `keyAlias`, `keyPassword` of the upload keystore. |
+| `frontend/android/local.properties` | `sdk.dir=` path of the Android SDK. |
+
+Commands (run in `frontend/`):
+
+```
+npm run android:sync      # build the web bundle for Android and copy it into the native project
+npm run android:release   # the above + signed AAB and APK (android/app/build/outputs/)
+npm run android:version   # bump versionCode (+1) and the version name before each Play upload
+```
+
+What differs from the website when `VITE_PLATFORM=android` (see `src/lib/platform.ts`):
+
+- No admin panel: `src/admin/AdminApp` is replaced by a stub at build time (`vite.config.ts`).
+- Google sign-in is native (`src/native/googleSignIn.ts`), then handed to the Firebase web SDK.
+- AdMob replaces AdSense (`src/native/ads.ts`, IDs in `src/native/adsConfig.ts` and `.env.android`). Free members only.
+- Premium page shows status and benefits only; manual payment methods are hidden. Google Play Billing belongs in `src/native/billing.ts`.
+- Back button, keyboard, external links: `src/native/init.ts`. Offline screen: `src/components/OfflineGate.tsx`.
+- App icon and splash are generated from the logo: `node scripts/make-app-assets.mjs && npx capacitor-assets generate --android`.

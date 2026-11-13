@@ -29,5 +29,7 @@
   .chip-shared { @apply border-marker bg-marker/40 text-ink; }
   .scroll-none { scrollbar-width: none; }
   .scroll-none::-webkit-scrollbar { display: none; }
+  /* Android app: while the keyboard is open, hide bottom bars so they don’t sit on top of it. */
+  .keyboard-open .hide-on-keyboard { display: none; }
   .mark { background: linear-gradient(transparent 55%, #FFD84D 55%, #FFD84D 92%, transparent 92%); padding: 0 .08em; }
 }

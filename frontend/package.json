@@ -7,9 +7,23 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:android": "tsc --noEmit && vite build --mode android",
+    "android:sync": "npm run build:android && cap sync android",
+    "android:release": "npm run android:sync && cd android && gradlew.bat bundleRelease assembleRelease",
+    "android:version": "node scripts/bump-android-version.mjs"
   },
   "dependencies": {
+    "@capacitor-community/admob": "^8.3.0",
+    "@capacitor-firebase/authentication": "^8.6.0",
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/geolocation": "^8.2.4",
+    "@capacitor/keyboard": "^8.0.6",
+    "@capacitor/network": "^8.0.1",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.4",
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
     "@fontsource-variable/figtree": "^5.3.0",
     "@tanstack/react-query": "^5.107.1",
@@ -22,6 +36,8 @@
     "socket.io-client": "^4.8.4"
   },
   "devDependencies": {
+    "@capacitor/assets": "^4.0.0",
+    "@capacitor/cli": "^8.6.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
@@ -30,5 +46,10 @@
     "tailwindcss": "^3.4.19",
     "typescript": "^7.0.2",
     "vite": "^8.3.8"
+  },
+  "overrides": {
+    "@capacitor-firebase/authentication": {
+      "firebase": "$firebase"
+    }
   }
 }

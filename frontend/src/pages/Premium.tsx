@@ -10,6 +10,8 @@ import { uploadBlob } from '../lib/upload';
 import type { Payment } from '../lib/types';
 import { useToast } from '../context/Toast';
 import { ErrorState, FullScreenLoader, Spinner } from '../components/ui';
+import { isAndroidApp } from '../lib/platform';
+import { playBillingAvailable } from '../native/billing';
 
 const money = (n: number, c: string) => (c === 'USD' ? `$${n.toFixed(2)}` : `Rs ${Math.round(n).toLocaleString()}`);
 
@@ -17,7 +19,7 @@ export default function PremiumPage() {
   const cfg = useConfig();
   const qc = useQueryClient();
   const toast = useToast();
-  const payments = useQuery({ queryKey: ['payments'], queryFn: () => api.get<{ payments: Payment[] }>('/payments') });
+  const payments = useQuery({ queryKey: ['payments'], queryFn: () => api.get<{ payments: Payment[] }>('/payments'), enabled: !isAndroidApp });
   const [planId, setPlanId] = useState('');
   const [methodId, setMethodId] = useState('');
   const [reference, setReference] = useState('');
@@ -75,6 +77,29 @@ export default function PremiumPage() {
     'See who viewed your profile',
     'A Premium label on your profile',
   ];
+
+  // Android app: Google Play only allows Play Billing for digital subscriptions, so no payment methods,
+  // instructions, prices or receipt upload are shown here. Premium status and benefits still are.
+  if (isAndroidApp) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <h1 className="text-3xl font-bold">Match360 Premium</h1>
+        {c.premium ? (
+          <p className="mt-2 text-slate">Premium is active until <b className="text-ink">{new Date(c.premiumUntil!).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}</b>. Thank you for supporting Match360.</p>
+        ) : (
+          <p className="mt-2 text-slate">Free accounts see ads and can connect with {c.limits.freeDailyChallenges} people a day. Premium removes the limits.</p>
+        )}
+        <ul className="mt-6 grid gap-2 sm:grid-cols-2">
+          {perks.map((p) => <li key={p} className="flex items-start gap-2.5"><Check size={18} className="mt-0.5 shrink-0 text-right" />{p}</li>)}
+        </ul>
+        {/* Google Play Billing goes here once it is implemented in native/billing.ts. */}
+        {!c.premium && !playBillingAvailable && (
+          <p className="mt-8 rounded-xl border border-rule bg-card p-4 text-sm text-slate">Premium can’t be purchased in the app yet. If your account already has Premium, it is active here automatically.</p>
+        )}
+        <p className="mt-8 text-sm text-slate">See our <Link to="/terms" className="text-cobalt underline">Terms</Link>.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl">

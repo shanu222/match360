@@ -1,5 +1,6 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, type Auth } from 'firebase/auth';
+import { isAndroidApp } from './platform';
 
 const env = import.meta.env;
 
@@ -8,7 +9,12 @@ const env = import.meta.env;
  * so sign-in works with third-party-storage restrictions (Safari, Chrome, mobile) and redirects.
  */
 const isLocal = typeof window !== 'undefined' && /^(localhost|127\.|192\.168\.)/.test(window.location.hostname);
-const authDomain = import.meta.env.PROD && !isLocal ? window.location.host : env.VITE_FIREBASE_AUTH_DOMAIN;
+// Inside the Android app the origin is https://localhost, so the “site host” trick doesn’t apply: use the Firebase domain.
+const authDomain = isAndroidApp
+  ? env.VITE_FIREBASE_AUTH_DOMAIN || 'match360-3c99e.firebaseapp.com'
+  : import.meta.env.PROD && !isLocal
+    ? window.location.host
+    : env.VITE_FIREBASE_AUTH_DOMAIN;
 export const firebaseConfigured = Boolean(env.VITE_FIREBASE_API_KEY && env.VITE_FIREBASE_AUTH_DOMAIN && env.VITE_FIREBASE_PROJECT_ID);
 
 let app: FirebaseApp | null = null;
@@ -46,6 +52,8 @@ export function friendlyAuthError(code: string): string {
     'auth/popup-blocked': 'Your browser blocked the sign-in popup. Allow popups and try again.',
     'auth/unauthorized-domain': 'This domain is not authorised in Firebase. Add it under Authentication › Settings › Authorised domains.',
     'auth/requires-recent-login': 'Please sign in again to continue.',
+    'auth/app-not-authorized': 'Google sign-in isn’t set up for this build of the app yet. Please use email and password for now.',
+    'auth/account-exists-with-different-credential': 'An account with this email already exists. Sign in with your email and password.',
   };
   return m[code] || 'Something went wrong. Please try again.';
 }
