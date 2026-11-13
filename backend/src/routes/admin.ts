@@ -11,7 +11,7 @@ import { emails } from '../email.js';
 import { clearStatusCache, deleteFirebaseUser, forgetUser } from '../auth.js';
 import { isUuid, param } from './common.js';
 import { ageFrom, isPremium, privateProfile, type UserRow } from '../profiles.js';
-import { generateAIQuiz } from '../ai.js';
+import { checkProviders, generateAIQuiz } from '../ai.js';
 import { quizFacts } from '../quiz.js';
 import { countryName } from '../geo.js';
 
@@ -287,7 +287,7 @@ admin.post('/payments/:id/:decision', async (req, res) => {
 });
 
 /* ---------------- settings ---------------- */
-const PROVIDERS: Provider[] = ['openai', 'gemini', 'anthropic', 'groq', 'custom'];
+import { PROVIDERS } from '../settings.js';
 admin.get('/settings', async (_req, res) => {
   const [plans, paymentMethods, ads, limits, ai] = await Promise.all([getSetting('plans'), getSetting('paymentMethods'), getSetting('ads'), getSetting('limits'), getSetting('ai')]);
   const keys: Record<string, { source: 'admin' | 'env' | 'none'; preview: string }> = {};
@@ -337,6 +337,12 @@ admin.put('/settings/:section', async (req, res) => {
   }
   await audit(req, 'settings_update', section);
   res.json({ ok: true });
+});
+
+admin.post('/ai/check', async (req, res) => {
+  const results = await checkProviders();
+  await audit(req, 'ai_check', undefined, { ok: results.filter((r) => r.state === 'ok').length, total: results.length });
+  res.json({ results });
 });
 
 /** Runs the AI generator against a real profile (or a sample) so the admin can confirm keys work. */

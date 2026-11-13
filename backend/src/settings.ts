@@ -36,7 +36,8 @@ export const mask = (k: string) => (k ? `${k.slice(0, 4)}…${k.slice(-4)}` : ''
 /* ---------- typed settings with defaults ---------- */
 export interface Plan { id: string; name: string; months: number; pricePKR: number; priceUSD: number; highlight?: boolean }
 export interface PaymentMethod { id: string; name: string; enabled: boolean; currency: 'PKR' | 'USD'; details: { label: string; value: string }[]; link?: string; instructions: string }
-export type Provider = 'openai' | 'gemini' | 'anthropic' | 'groq' | 'custom';
+export type Provider = 'openai' | 'gemini' | 'anthropic' | 'groq' | 'openrouter' | 'custom';
+export const PROVIDERS: Provider[] = ['openai', 'gemini', 'openrouter', 'anthropic', 'groq', 'custom'];
 export interface AiSettings {
   enabled: boolean;
   order: Provider[];
@@ -61,8 +62,20 @@ export const DEFAULTS = {
   limits: { freeDailyChallenges: 10, premiumDailyChallenges: 50, freeRetakeHours: 24, premiumRetakeHours: 6 },
   ai: {
     enabled: true,
-    order: ['openai', 'gemini', 'anthropic', 'groq'],
-    models: { openai: 'gpt-4o-mini', gemini: 'gemini-2.0-flash', anthropic: 'claude-haiku-5-5', groq: 'llama-3.3-70b-versatile', custom: '' },
+    // Defaults come from Railway variables when set (AI_PROVIDER_ORDER, OPENAI_MODEL, GEMINI_MODEL, OPENROUTER_MODELS, …).
+    order: ((): Provider[] => {
+      const fromEnv = config.aiEnv.order.filter((p): p is Provider => ['openai', 'gemini', 'anthropic', 'groq', 'openrouter', 'custom'].includes(p));
+      return fromEnv.length ? fromEnv : ['openai', 'gemini', 'openrouter', 'anthropic', 'groq'];
+    })(),
+    // Each value is a comma-separated list: the first model is tried first, the rest are fallbacks.
+    models: {
+      openai: config.aiEnv.openai || 'gpt-4.1-mini,gpt-4o-mini',
+      gemini: config.aiEnv.gemini || 'gemini-2.5-flash,gemini-2.0-flash',
+      openrouter: config.aiEnv.openrouter || 'meta-llama/llama-3.3-70b-instruct:free',
+      anthropic: config.aiEnv.anthropic || 'claude-haiku-5-5',
+      groq: config.aiEnv.groq || 'llama-3.3-70b-versatile',
+      custom: '',
+    },
     keys: {},
     customBaseUrl: '',
   } as AiSettings,

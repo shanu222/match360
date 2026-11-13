@@ -532,8 +532,12 @@ function PaymentsPage({ base }: { base: string }) {
 /*  Settings                                                            */
 /* ------------------------------------------------------------------ */
 
-const PROVIDER_LABEL: Record<string, string> = { openai: 'OpenAI', gemini: 'Google Gemini', anthropic: 'Anthropic Claude', groq: 'Groq', custom: 'Other (OpenAI-compatible)' };
-const ENV_NAME: Record<string, string> = { openai: 'OPENAI_API_KEY', gemini: 'GEMINI_API_KEY', anthropic: 'ANTHROPIC_API_KEY', groq: 'GROQ_API_KEY', custom: '—' };
+const PROVIDER_LABEL: Record<string, string> = { openai: 'OpenAI', gemini: 'Google Gemini', openrouter: 'OpenRouter', anthropic: 'Anthropic Claude', groq: 'Groq', custom: 'Other (OpenAI-compatible)' };
+const ENV_NAME: Record<string, string> = { openai: 'OPENAI_API_KEY', gemini: 'GEMINI_API_KEY', openrouter: 'OPENROUTER_API_KEY', anthropic: 'ANTHROPIC_API_KEY', groq: 'GROQ_API_KEY', custom: '—' };
+const STATE_LABEL: Record<string, [string, 'ok' | 'bad' | 'warn' | 'plain']> = {
+  ok: ['Working', 'ok'], invalid: ['Invalid or expired', 'bad'], no_credit: ['No credit', 'bad'], rate_limited: ['Rate limited', 'warn'], model_missing: ['Model not available', 'warn'],
+  timeout: ['Timed out', 'warn'], provider_error: ['Provider error', 'warn'], network: ['Network error', 'warn'], missing: ['No key', 'plain'],
+};
 
 function SettingsPage() {
   const [tab, setTab] = useState<'ai' | 'plans' | 'payments' | 'ads' | 'limits'>('ai');
@@ -569,7 +573,8 @@ function AiSettings({ data }: { data: any }) {
   const [keys, setKeys] = useState<Record<string, string>>({});
   const save = useSave('ai');
   const test = useMutation({ mutationFn: () => adminApi.post<any>('/ai/test', {}) });
-  const all = ['openai', 'gemini', 'anthropic', 'groq', 'custom'];
+  const all = ['openai', 'gemini', 'openrouter', 'anthropic', 'groq', 'custom'];
+  const check = useMutation({ mutationFn: () => adminApi.post<{ results: any[] }>('/ai/check', {}) });
   const move = (p: string, dir: -1 | 1) => {
     const i = order.indexOf(p);
     const j = i + dir;
@@ -606,7 +611,7 @@ function AiSettings({ data }: { data: any }) {
               </div>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate">Model</label>
+                  <label className="mb-1 block text-xs font-medium text-slate">Models, in order (comma-separated; later ones are fallbacks)</label>
                   <input className="input py-2" value={models[p] || ''} onChange={(e) => setModels({ ...models, [p]: e.target.value })} />
                 </div>
                 <div>
@@ -631,8 +636,32 @@ function AiSettings({ data }: { data: any }) {
       </div>
       <div className="flex flex-wrap gap-3">
         <button className="btn btn-primary" disabled={save.isPending} onClick={() => save.mutate({ enabled, order, models, customBaseUrl: baseUrl, keys }, { onSuccess: () => setKeys({}) })}>Save AI settings</button>
+        <button className="btn btn-ghost" disabled={check.isPending} onClick={() => check.mutate()}>{check.isPending ? <Spinner size={18} /> : 'Check all keys and models'}</button>
         <button className="btn btn-ghost" disabled={test.isPending} onClick={() => test.mutate()}>{test.isPending ? <Spinner size={18} /> : 'Test with a real profile'}</button>
       </div>
+      <p className="-mt-2 text-xs text-slate">Save first if you changed anything. Checks use the saved settings and make one tiny request per model.</p>
+      {check.isError && <p className="text-sm text-wrong">{errMsg(check.error)}</p>}
+      {check.data && (
+        <div className="overflow-x-auto rounded-xl border border-rule bg-card">
+          <table className="w-full min-w-[620px] text-left text-sm">
+            <thead className="border-b border-rule text-slate"><tr><th className="px-4 py-2.5 font-medium">Provider</th><th className="px-4 py-2.5 font-medium">Model</th><th className="px-4 py-2.5 font-medium">Key from</th><th className="px-4 py-2.5 font-medium">Result</th><th className="px-4 py-2.5 font-medium">Time</th></tr></thead>
+            <tbody className="divide-y divide-rule">
+              {check.data.results.map((r) => {
+                const [label, tone] = STATE_LABEL[r.state] || [r.state, 'plain'];
+                return (
+                  <tr key={r.provider + r.model}>
+                    <td className="px-4 py-2.5 font-medium">{PROVIDER_LABEL[r.provider]}</td>
+                    <td className="px-4 py-2.5"><code className="text-xs">{r.model}</code></td>
+                    <td className="px-4 py-2.5 text-slate">{r.source === 'env' ? 'Railway variable' : r.source === 'admin' ? 'Admin panel' : '—'}</td>
+                    <td className="px-4 py-2.5"><Badge tone={tone}>{label}</Badge> <span className="text-slate">{r.state !== 'ok' && r.state !== 'missing' ? r.message : ''}</span></td>
+                    <td className="px-4 py-2.5 text-slate">{r.ms ? `${(r.ms / 1000).toFixed(1)} s` : ''}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
       {test.data && (
         <div className="rounded-xl border border-rule bg-card p-4 text-sm">
           <div className="font-semibold">{test.data.provider ? `Worked with ${PROVIDER_LABEL[test.data.provider]} in ${(test.data.ms / 1000).toFixed(1)} s` : 'No provider produced usable questions, so members would get built-in questions.'} <span className="font-normal text-slate">Profile: {test.data.profile}</span></div>

@@ -1,4 +1,5 @@
-import { aiKey, getSetting, type Provider } from './settings.js';
+import { aiKey, getSetting, PROVIDERS, type Provider } from './settings.js';
+import { config } from './config.js';
 import type { StoredQuestion } from './quiz.js';
 
 /**
@@ -7,8 +8,17 @@ import type { StoredQuestion } from './quiz.js';
  * Returns [] if no provider is configured or every provider fails — the caller then uses the rule-based generator.
  */
 
-const TIMEOUT_MS = 9_000;
-const TOTAL_BUDGET_MS = 14_000;
+// A member is waiting on screen, so each call is capped even if AI_TIMEOUT_MS is set higher.
+const TIMEOUT_MS = Math.min(Math.max(config.aiEnv.timeoutMs, 4_000), 15_000);
+const TOTAL_BUDGET_MS = 25_000;
+
+export const modelList = (v: string | undefined) => (v || '').split(',').map((m) => m.trim()).filter(Boolean);
+
+export class ProviderError extends Error {
+  constructor(public status: number, public body: string) {
+    super(`HTTP ${status}: ${body.slice(0, 200)}`);
+  }
+}
 
 function shuffle<T>(a: T[]): T[] {
   const b = [...a];
@@ -44,53 +54,106 @@ Profile (JSON):
 ${JSON.stringify(facts, null, 1)}`;
 }
 
-async function withTimeout(url: string, init: RequestInit) {
+async function withTimeout(url: string, init: RequestInit, ms = TIMEOUT_MS) {
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  const t = setTimeout(() => ctrl.abort(), ms);
   try {
     const r = await fetch(url, { ...init, signal: ctrl.signal });
     const text = await r.text();
-    if (!r.ok) throw new Error(`HTTP ${r.status}: ${text.slice(0, 200)}`);
+    if (!r.ok) throw new ProviderError(r.status, text);
     return JSON.parse(text);
   } finally {
     clearTimeout(t);
   }
 }
 
-async function callProvider(p: Provider, key: string, model: string, prompt: string, baseUrl: string): Promise<string> {
+const OPENAI_COMPAT: Partial<Record<Provider, string>> = {
+  openai: 'https://api.openai.com/v1',
+  groq: 'https://api.groq.com/openai/v1',
+  openrouter: 'https://openrouter.ai/api/v1',
+};
+function compatHeaders(p: Provider, key: string) {
+  const h: Record<string, string> = { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` };
+  if (p === 'openrouter') {
+    h['HTTP-Referer'] = config.appUrl;
+    h['X-Title'] = 'Match360';
+  }
+  return h;
+}
+/** Gemini API keys go in x-goog-api-key; OAuth-style tokens (not starting with AIza) are retried as a bearer token. */
+const geminiKeyHeaders = (key: string): Record<string, string> => ({ 'Content-Type': 'application/json', 'x-goog-api-key': key });
+const geminiBearerHeaders = (key: string): Record<string, string> => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${key}` });
+
+async function callProvider(p: Provider, key: string, model: string, prompt: string, baseUrl: string, opts: { maxTokens?: number; json?: boolean; timeout?: number } = {}): Promise<string> {
+  const json = opts.json !== false;
+  const maxTokens = opts.maxTokens || 1500;
   switch (p) {
     case 'openai':
     case 'groq':
+    case 'openrouter':
     case 'custom': {
-      const url =
-        p === 'openai' ? 'https://api.openai.com/v1/chat/completions' : p === 'groq' ? 'https://api.groq.com/openai/v1/chat/completions' : `${baseUrl.replace(/\/$/, '')}/chat/completions`;
-      const j = await withTimeout(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-        body: JSON.stringify({ model, temperature: 0.9, response_format: { type: 'json_object' }, messages: [{ role: 'user', content: prompt }] }),
-      });
+      const base = p === 'custom' ? baseUrl.replace(/\/$/, '') : OPENAI_COMPAT[p]!;
+      const body: Record<string, unknown> = { model, messages: [{ role: 'user', content: prompt }] };
+      // Reasoning models (o-series, gpt-5) only accept the default temperature.
+      if (!/^(o\d|gpt-5)/.test(model)) body.temperature = 0.9;
+      // Newer OpenAI models reject max_tokens; the others still use it.
+      if (p === 'openai') body.max_completion_tokens = maxTokens;
+      else body.max_tokens = maxTokens;
+      if (json && p !== 'openrouter') body.response_format = { type: 'json_object' };
+      const j = await withTimeout(`${base}/chat/completions`, { method: 'POST', headers: compatHeaders(p, key), body: JSON.stringify(body) }, opts.timeout);
       return j?.choices?.[0]?.message?.content || '';
     }
     case 'gemini': {
-      const j = await withTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.9, responseMimeType: 'application/json' },
-        }),
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+      const body = JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.9,
+          maxOutputTokens: maxTokens,
+          ...(json ? { responseMimeType: 'application/json' } : {}),
+          // Flash models: skip "thinking" so answers come back fast.
+          ...(/flash/.test(model) && /2\.5|3/.test(model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+        },
       });
+      let j: any;
+      try {
+        j = await withTimeout(url, { method: 'POST', headers: geminiKeyHeaders(key), body }, opts.timeout);
+      } catch (e) {
+        if (!key.startsWith('AIza') && e instanceof ProviderError && (e.status === 400 || e.status === 401 || e.status === 403)) {
+          j = await withTimeout(url, { method: 'POST', headers: geminiBearerHeaders(key), body }, opts.timeout);
+        } else throw e;
+      }
       return j?.candidates?.[0]?.content?.parts?.map((x: any) => x.text).join('') || '';
     }
     case 'anthropic': {
-      const j = await withTimeout('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model, max_tokens: 1500, temperature: 0.9, messages: [{ role: 'user', content: prompt }] }),
-      });
+      const j = await withTimeout(
+        'https://api.anthropic.com/v1/messages',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({ model, max_tokens: maxTokens, temperature: 0.9, messages: [{ role: 'user', content: prompt }] }),
+        },
+        opts.timeout,
+      );
       return j?.content?.map((x: any) => x.text || '').join('') || '';
     }
   }
+}
+
+/** Plain-language reason for a failed call, used in logs and the admin key checker. */
+export function explain(e: any): { state: 'invalid' | 'no_credit' | 'rate_limited' | 'model_missing' | 'timeout' | 'provider_error' | 'network'; message: string } {
+  if (e?.name === 'AbortError') return { state: 'timeout', message: 'Timed out' };
+  if (e instanceof ProviderError) {
+    const b = e.body.toLowerCase();
+    if (e.status === 401 || (e.status === 403 && !b.includes('region'))) return { state: 'invalid', message: 'Key is invalid, expired or revoked' };
+    if (e.status === 402 || b.includes('insufficient_quota') || b.includes('credit') || b.includes('billing')) return { state: 'no_credit', message: 'No credit or billing not set up' };
+    if (e.status === 429) return { state: 'rate_limited', message: b.includes('quota') ? 'Quota used up for now' : 'Rate limited, try again shortly' };
+    if (e.status === 404 || b.includes('model_not_found') || b.includes('does not exist') || b.includes('not found')) return { state: 'model_missing', message: 'Model not found or not available to this key' };
+    if (e.status === 400 && (b.includes('api key') || b.includes('api_key'))) return { state: 'invalid', message: 'Key is invalid' };
+    if (e.status === 400 && b.includes('model')) return { state: 'model_missing', message: 'Model name not accepted' };
+    return { state: 'provider_error', message: `Provider error (HTTP ${e.status})` };
+  }
+  return { state: 'network', message: e?.message || 'Network error' };
 }
 
 function parseQuestions(raw: string): { question: string; options: string[]; answer: string }[] {
@@ -142,18 +205,57 @@ export async function generateAIQuiz(facts: Record<string, unknown>, count: numb
   const profileText = JSON.stringify(facts);
 
   for (const p of ai.order) {
-    if (Date.now() - started > TOTAL_BUDGET_MS) break;
     const key = await aiKey(p);
-    const model = ai.models?.[p];
-    if (!key || !model || (p === 'custom' && !ai.customBaseUrl)) continue;
-    try {
-      const raw = await callProvider(p, key, model, prompt, ai.customBaseUrl);
-      const qs = validate(parseQuestions(raw), profileText, age);
-      if (qs.length >= 3) return { questions: qs.slice(0, count), provider: p, errors };
-      errors.push(`${p}: only ${qs.length} usable questions`);
-    } catch (e: any) {
-      errors.push(`${p}: ${e?.name === 'AbortError' ? 'timed out' : e?.message || 'failed'}`);
+    if (!key || (p === 'custom' && !ai.customBaseUrl)) continue;
+    for (const model of modelList(ai.models?.[p])) {
+      if (Date.now() - started > TOTAL_BUDGET_MS) return { questions: [], provider: null, errors: [...errors, 'time budget used up'] };
+      try {
+        const raw = await callProvider(p, key, model, prompt, ai.customBaseUrl);
+        const qs = validate(parseQuestions(raw), profileText, age);
+        if (qs.length >= 3) {
+          if (config.aiEnv.logging) console.log(`[ai] ${p}/${model} wrote ${qs.length} questions in ${Date.now() - started} ms`);
+          return { questions: qs.slice(0, count), provider: `${p}:${model}`, errors };
+        }
+        errors.push(`${p}/${model}: only ${qs.length} usable questions`);
+      } catch (e: any) {
+        const x = explain(e);
+        errors.push(`${p}/${model}: ${x.message}`);
+        if (x.state === 'invalid' || x.state === 'no_credit') break; // other models on the same key will fail too
+      }
     }
   }
   return { questions: [], provider: null, errors };
+}
+
+/* ---------------- Admin key checker ---------------- */
+export interface CheckResult { provider: Provider; model: string; source: 'admin' | 'env' | 'none'; state: 'ok' | ReturnType<typeof explain>['state'] | 'missing'; message: string; ms: number }
+
+export async function checkProviders(): Promise<CheckResult[]> {
+  const ai = await getSetting('ai');
+  const jobs: Promise<CheckResult>[] = [];
+  for (const p of PROVIDERS) {
+    const key = await aiKey(p);
+    const source: CheckResult['source'] = ai.keys?.[p] ? 'admin' : key ? 'env' : 'none';
+    const models = modelList(ai.models?.[p]);
+    if (!key) {
+      if (p !== 'custom' || ai.customBaseUrl) jobs.push(Promise.resolve({ provider: p, model: models.join(', ') || '—', source, state: 'missing', message: 'No key set', ms: 0 }));
+      continue;
+    }
+    if (p === 'custom' && !ai.customBaseUrl) continue;
+    for (const model of models.length ? models : ['(no model set)']) {
+      jobs.push(
+        (async () => {
+          const t = Date.now();
+          try {
+            const out = await callProvider(p, key, model, 'Reply with the single word OK.', ai.customBaseUrl, { maxTokens: 20, json: false, timeout: 20_000 });
+            return { provider: p, model, source, state: 'ok', message: out.trim() ? 'Working' : 'Responded with an empty answer', ms: Date.now() - t } as CheckResult;
+          } catch (e) {
+            const x = explain(e);
+            return { provider: p, model, source, state: x.state, message: x.message, ms: Date.now() - t };
+          }
+        })(),
+      );
+    }
+  }
+  return Promise.all(jobs);
 }

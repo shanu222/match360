@@ -102,7 +102,7 @@ From the panel you can review reports, approve identity verifications (with priv
 
 ## AI challenge questions
 
-Questions are written from the member's full profile, differently each time. Providers are tried in the order set in the admin panel (OpenAI, Gemini, Anthropic, Groq, or any OpenAI-compatible API). Each answer is checked against the profile and any question that can't be verified is dropped. If no provider works, the built-in generator is used, so challenges never stop. Keys can come from Railway variables (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `GROQ_API_KEY`) or be saved, encrypted, from the admin panel.
+Questions are written from the member's full profile, differently each time. Providers are tried in the order set in the admin panel (OpenAI, Gemini, Anthropic, Groq, or any OpenAI-compatible API). Each answer is checked against the profile and any question that can't be verified is dropped. If no provider works, the built-in generator is used, so challenges never stop. Keys can come from Railway variables (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, with `OPENAI_MODEL`/`OPENAI_FALLBACK_MODEL`, `GEMINI_MODEL`/`GEMINI_FALLBACK_MODEL`, `OPENROUTER_MODELS` and `AI_PROVIDER_ORDER`) or be saved, encrypted, from the admin panel. Admin → Settings → AI → “Check all keys and models” tests every key and model and shows whether it works, is invalid or expired, has no credit, is rate limited, or names a model that doesn’t exist.
 
 ## Payments and ads
 

@@ -37,6 +37,18 @@ export const config = {
     gemini: process.env.GEMINI_API_KEY || '',
     anthropic: process.env.ANTHROPIC_API_KEY || '',
     groq: process.env.GROQ_API_KEY || '',
+    openrouter: process.env.OPENROUTER_API_KEY || '',
+  },
+  aiEnv: {
+    order: (process.env.AI_PROVIDER_ORDER || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
+    // Model lists: primary first, then fallbacks.
+    openai: [process.env.OPENAI_MODEL, process.env.OPENAI_FALLBACK_MODEL].filter(Boolean).join(','),
+    gemini: [process.env.GEMINI_MODEL, process.env.GEMINI_FALLBACK_MODEL].filter(Boolean).join(','),
+    anthropic: [process.env.ANTHROPIC_MODEL, process.env.ANTHROPIC_FALLBACK_MODEL].filter(Boolean).join(','),
+    groq: [process.env.GROQ_MODEL, process.env.GROQ_FALLBACK_MODEL].filter(Boolean).join(','),
+    openrouter: process.env.OPENROUTER_MODELS || '',
+    timeoutMs: Number(process.env.AI_TIMEOUT_MS) || 12_000,
+    logging: process.env.AI_LOGGING !== 'false',
   },
   r2Private: process.env.R2_PRIVATE_BUCKET || '',
   resend: {
