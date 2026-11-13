@@ -20,7 +20,7 @@ const NAV = [
 
 function Badge({ n, className }: { n?: number; className?: string }) {
   if (!n) return null;
-  return <span className={clsx('flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-coral px-1.5 text-[11px] font-bold text-white', className)}>{n > 99 ? '99+' : n}</span>;
+  return <span className={clsx('flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-cobalt px-1.5 text-[11px] font-bold text-white', className)}>{n > 99 ? '99+' : n}</span>;
 }
 
 export function AppShell() {
@@ -36,7 +36,7 @@ export function AppShell() {
     <div className="min-h-dvh lg:pl-72">
       <Realtime myId={user.id} />
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 flex-col border-r border-ink-700/70 bg-ink-900/60 px-5 py-6 backdrop-blur lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 flex-col border-r border-rule bg-card px-5 py-6 backdrop-blur lg:flex">
         <NavLink to="/discover" className="px-2">
           <Logo />
         </NavLink>
@@ -46,33 +46,33 @@ export function AppShell() {
               key={to}
               to={to}
               className={({ isActive }) =>
-                clsx('flex items-center gap-3.5 rounded-2xl px-4 py-3 text-[15px] font-semibold transition', isActive ? 'bg-ink-800 text-white' : 'text-ink-400 hover:bg-ink-800/60 hover:text-white')
+                clsx('flex items-center gap-3.5 rounded-2xl px-4 py-3 text-[15px] font-semibold transition', isActive ? 'bg-paper text-ink' : 'text-slate hover:bg-paper hover:text-ink')
               }
             >
               {({ isActive }) => (
                 <>
-                  <Icon size={21} className={isActive ? 'text-coral' : ''} />
+                  <Icon size={21} className={isActive ? 'text-cobalt' : ''} />
                   <span className="flex-1">{label}</span>
                   <Badge n={count ? counts?.[count] : 0} />
                 </>
               )}
             </NavLink>
           ))}
-          <button onClick={() => setBell(true)} className="flex items-center gap-3.5 rounded-2xl px-4 py-3 text-left text-[15px] font-semibold text-ink-400 transition hover:bg-ink-800/60 hover:text-white">
+          <button onClick={() => setBell(true)} className="flex items-center gap-3.5 rounded-2xl px-4 py-3 text-left text-[15px] font-semibold text-slate transition hover:bg-paper hover:text-ink">
             <Bell size={21} />
             <span className="flex-1">Notifications</span>
             <Badge n={counts?.unreadNotifications} />
           </button>
         </nav>
         <div className="mt-auto">
-          <NavLink to="/settings" className="mb-3 flex items-center gap-3.5 rounded-2xl px-4 py-3 text-[15px] font-semibold text-ink-400 hover:bg-ink-800/60 hover:text-white">
+          <NavLink to="/settings" className="mb-3 flex items-center gap-3.5 rounded-2xl px-4 py-3 text-[15px] font-semibold text-slate hover:bg-paper hover:text-ink">
             <Settings size={21} /> Settings
           </NavLink>
-          <NavLink to="/me" className="flex items-center gap-3 rounded-2xl border border-ink-700 bg-ink-850 p-3 hover:border-ink-600">
+          <NavLink to="/me" className="flex items-center gap-3 rounded-2xl border border-rule bg-card p-3 border-rule">
             <Avatar src={user.photos[0]} name={user.name} className="h-11 w-11" />
             <div className="min-w-0">
               <div className="truncate font-bold">{user.name}</div>
-              <div className="truncate text-xs text-ink-400">{user.email}</div>
+              <div className="truncate text-xs text-slate">{user.email}</div>
             </div>
           </NavLink>
         </div>
@@ -80,13 +80,13 @@ export function AppShell() {
 
       {/* Mobile top bar */}
       {!inChat && (
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-ink-700/50 bg-ink-950/85 px-4 pb-3 pt-[calc(.75rem+env(safe-area-inset-top))] backdrop-blur lg:hidden">
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-rule bg-paper/90 px-4 pb-3 pt-[calc(.75rem+env(safe-area-inset-top))] backdrop-blur lg:hidden">
           <NavLink to="/discover"><Logo size={30} /></NavLink>
           <div className="flex items-center gap-2">
-            <NavLink to="/settings" aria-label="Settings" className="flex h-10 w-10 items-center justify-center rounded-2xl border border-ink-700 bg-ink-850 text-ink-300">
+            <NavLink to="/settings" aria-label="Settings" className="flex h-10 w-10 items-center justify-center rounded-2xl border border-rule bg-card text-slate">
               <Settings size={19} />
             </NavLink>
-            <button aria-label="Notifications" onClick={() => setBell(true)} className="relative flex h-10 w-10 items-center justify-center rounded-2xl border border-ink-700 bg-ink-850 text-ink-300">
+            <button aria-label="Notifications" onClick={() => setBell(true)} className="relative flex h-10 w-10 items-center justify-center rounded-2xl border border-rule bg-card text-slate">
               <Bell size={19} />
               <Badge n={counts?.unreadNotifications} className="absolute -right-1.5 -top-1.5" />
             </button>
@@ -100,12 +100,12 @@ export function AppShell() {
 
       {/* Mobile tab bar */}
       {!inChat && (
-        <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-ink-700/60 bg-ink-950/90 px-2 pb-[calc(.6rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden">
+        <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-rule bg-paper/90 px-2 pb-[calc(.6rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden">
           {NAV.map(({ to, label, icon: Icon, count }) => (
-            <NavLink key={to} to={to} className={({ isActive }) => clsx('relative flex flex-1 flex-col items-center gap-1 py-1 text-[11px] font-semibold', isActive ? 'text-white' : 'text-ink-400')}>
+            <NavLink key={to} to={to} className={({ isActive }) => clsx('relative flex flex-1 flex-col items-center gap-1 py-1 text-[11px] font-semibold', isActive ? 'text-ink' : 'text-slate')}>
               {({ isActive }) => (
                 <>
-                  <Icon size={22} className={isActive ? 'text-coral' : ''} />
+                  <Icon size={22} className={isActive ? 'text-cobalt' : ''} />
                   {label}
                   <Badge n={count ? counts?.[count] : 0} className="absolute right-[calc(50%-22px)] -top-1" />
                 </>
@@ -136,8 +136,8 @@ function Notifications({ open, onClose }: { open: boolean; onClose: () => void }
     <Modal open={open} onClose={close} title="Notifications">
       <div className="mt-4 space-y-2">
         {q.isLoading && <div className="flex justify-center py-10"><Spinner /></div>}
-        {q.isError && <p className="py-8 text-center text-ink-400">Couldn’t load notifications.</p>}
-        {q.data && !q.data.notifications.length && <p className="py-10 text-center text-ink-400">You’re all caught up. Challenge requests and new connections will show here.</p>}
+        {q.isError && <p className="py-8 text-center text-slate">Couldn’t load notifications.</p>}
+        {q.data && !q.data.notifications.length && <p className="py-10 text-center text-slate">You’re all caught up. Challenge requests and new connections will show here.</p>}
         {q.data?.notifications.map((n) => (
           <button
             key={n.id}
@@ -145,14 +145,14 @@ function Notifications({ open, onClose }: { open: boolean; onClose: () => void }
               close();
               nav(n.type === 'accepted' && n.ref_id ? `/chats/${n.ref_id}` : '/challenges');
             }}
-            className={clsx('flex w-full items-center gap-3 rounded-2xl p-3 text-left transition hover:bg-ink-800', !n.read && 'bg-ink-850')}
+            className={clsx('flex w-full items-center gap-3 rounded-2xl p-3 text-left transition hover:bg-paper', !n.read && 'bg-card')}
           >
             <Avatar src={n.actor_photo} name={n.actor_name || 'Match360'} className="h-11 w-11" />
             <div className="min-w-0 flex-1">
-              <div className={clsx('text-sm leading-snug', !n.read ? 'font-bold text-white' : 'text-ink-300')}>{n.body}</div>
-              <div className="mt-0.5 text-xs text-ink-400">{timeAgo(n.created_at)}</div>
+              <div className={clsx('text-sm leading-snug', !n.read ? 'font-bold text-ink' : 'text-slate')}>{n.body}</div>
+              <div className="mt-0.5 text-xs text-slate">{timeAgo(n.created_at)}</div>
             </div>
-            {!n.read && <span className="h-2 w-2 shrink-0 rounded-full bg-coral" />}
+            {!n.read && <span className="h-2 w-2 shrink-0 rounded-full bg-cobalt" />}
           </button>
         ))}
       </div>

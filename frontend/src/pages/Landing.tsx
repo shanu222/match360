@@ -1,119 +1,163 @@
+import { useState } from 'react';
 import { Link } from 'react-router';
-import { Brain, HeartHandshake, Lock, MessageCircle, ShieldCheck, Sparkles, Target, Zap } from 'lucide-react';
-import { Logo, LogoMark } from '../components/Logo';
+import clsx from 'clsx';
+import { Check, Eye, Lock, MessageCircle, ShieldCheck, SlidersHorizontal, X } from 'lucide-react';
+import { Logo } from '../components/Logo';
+
+/* A sample question so visitors feel the product in five seconds. The person is fictional. */
+const SAMPLE = {
+  name: 'Hira',
+  question: 'What is Hira’s perfect weekend?',
+  options: ['A road trip up north', 'Library till Asr, then poetry at home', 'Gaming all night', 'A long brunch with friends'],
+  answer: 1,
+};
+
+function QuestionCard() {
+  const [picked, setPicked] = useState<number | null>(null);
+  const done = picked !== null;
+  const correct = picked === SAMPLE.answer;
+  return (
+    <div className="relative mx-auto w-full max-w-[420px]">
+      {/* stacked cards behind: the rest of the challenge */}
+      <div className="absolute inset-x-6 -bottom-3 top-3 rounded-2xl border border-rule bg-card" aria-hidden />
+      <div className="absolute inset-x-3 -bottom-1.5 top-1.5 rounded-2xl border border-rule bg-card" aria-hidden />
+      <div className="relative rounded-2xl border border-rule bg-card p-6 shadow-lift sm:p-7">
+        <div className="flex items-center justify-between text-sm text-slate">
+          <span>Question 3 of 5</span>
+          <span className="tabular-nums">{done ? 'Answered' : '0:14'}</span>
+        </div>
+        <div className="mt-3 h-1 overflow-hidden rounded-full bg-rule">
+          <div className={clsx('h-full origin-left bg-cobalt transition-transform duration-700', done ? 'scale-x-0' : 'scale-x-[.7]')} />
+        </div>
+        <h3 className="mt-6 text-[22px] font-semibold leading-snug">{SAMPLE.question}</h3>
+        <div className="mt-5 space-y-2.5">
+          {SAMPLE.options.map((o, i) => {
+            const isAnswer = i === SAMPLE.answer;
+            const isPicked = i === picked;
+            return (
+              <button
+                key={o}
+                disabled={done}
+                onClick={() => setPicked(i)}
+                className={clsx(
+                  'flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-[15px] font-medium transition-colors',
+                  !done && 'border-rule hover:border-cobalt hover:bg-cobalt-soft',
+                  done && isAnswer && 'border-right bg-right/10',
+                  done && isPicked && !isAnswer && 'border-wrong bg-wrong/10',
+                  done && !isAnswer && !isPicked && 'border-rule opacity-50',
+                )}
+              >
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-rule bg-paper text-xs font-semibold text-slate">
+                  {done && isAnswer ? <Check size={14} className="text-right" /> : done && isPicked ? <X size={14} className="text-wrong" /> : 'ABCD'[i]}
+                </span>
+                {o}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-5 min-h-[44px] text-sm leading-relaxed text-slate" aria-live="polite">
+          {!done
+            ? 'Try it. This is what a Match360 challenge feels like.'
+            : correct
+              ? 'Right. Hira wrote that in her profile, and you noticed. That attention is what your score shows her.'
+              : 'Not quite. On Match360, your score tells people how closely you read about them.'}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 const steps = [
-  { n: 1, t: 'Build a profile worth knowing', d: 'Photos, interests and a few honest answers about you. Your answers become your challenge.' },
-  { n: 2, t: 'Take their challenge', d: 'Found someone interesting? Answer 5 quick questions about their profile. Your score is sent with your request.' },
-  { n: 3, t: 'They quiz you back', d: 'To accept, they answer questions about you. Their score comes back with the yes — then chat unlocks.' },
+  ['Write a profile people can learn from', 'Photos, interests and three short answers in your own words. Those answers become the questions people must get right.'],
+  ['Answer five questions about them', 'Each question is built from their profile and timed. Your score is attached to your request.'],
+  ['They answer five about you', 'To accept, they take your challenge. You see their score too, and only then can you message each other.'],
 ];
-const features = [
-  { i: Brain, t: 'Effort over swipes', d: 'Every request proves someone actually read your profile — no more low-effort “hey”.' },
-  { i: Target, t: 'Your bar, your rules', d: 'Set the score you hope for. Requests below it are flagged so you can decide fast.' },
-  { i: Sparkles, t: 'Smart compatibility', d: 'Shared interests, goals and city shape who you see first.' },
-  { i: MessageCircle, t: 'Real-time chat', d: 'Instant messages, typing indicators, read receipts and icebreakers drawn from their profile.' },
-  { i: ShieldCheck, t: 'Safety built in', d: 'One-tap report and block, 18+ only, incognito mode and verified emails.' },
-  { i: Lock, t: 'Private by design', d: 'Your email and birthday are never shown. Photos are stripped of location data.' },
+
+const details = [
+  { i: SlidersHorizontal, t: 'You set the bar', d: 'Choose the score you hope for. Requests under it are flagged, and the decision is always yours.' },
+  { i: Eye, t: 'Questions stay fair', d: 'Questions are generated and graded on our servers. Answers never reach the browser.' },
+  { i: MessageCircle, t: 'Chat that opens with context', d: 'Every conversation starts with two scores and suggestions drawn from what you both wrote.' },
+  { i: ShieldCheck, t: 'Safety in one tap', d: 'Report or block from any profile or chat. Members are 18+.' },
+  { i: Lock, t: 'Private details stay private', d: 'Your email and birthday are never shown. Photos are stripped of location data before upload.' },
 ];
 
 export default function Landing() {
   return (
-    <div className="relative min-h-dvh overflow-hidden">
-      <div className="pointer-events-none absolute -left-40 -top-40 h-[520px] w-[520px] rounded-full bg-coral/25 blur-[120px]" />
-      <div className="pointer-events-none absolute -right-40 top-40 h-[520px] w-[520px] rounded-full bg-violet/30 blur-[120px]" />
-
-      <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-5 pt-[calc(1.25rem+env(safe-area-inset-top))] sm:px-8">
+    <div className="min-h-dvh bg-paper">
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-5 pt-[calc(1.25rem+env(safe-area-inset-top))] sm:px-8">
         <Logo />
-        <div className="flex items-center gap-2">
-          <Link to="/login" className="btn btn-quiet px-4 py-2.5">Sign in</Link>
-          <Link to="/signup" className="btn btn-primary hidden px-4 py-2.5 sm:inline-flex">Get started</Link>
-        </div>
+        <nav className="flex items-center gap-1">
+          <Link to="/login" className="btn btn-quiet hidden px-4 py-2 sm:inline-flex">Sign in</Link>
+          <Link to="/signup" className="btn btn-primary whitespace-nowrap px-4 py-2">Create account</Link>
+        </nav>
       </header>
 
-      <section className="relative z-10 mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-14 sm:px-8 lg:grid-cols-[1.1fr_.9fr] lg:pt-24">
-        <div className="animate-fade-up">
-          <span className="inline-flex items-center gap-2 rounded-full border border-ink-600 bg-ink-850/80 px-3.5 py-1.5 text-xs font-bold text-ink-300">
-            <Zap size={14} className="fill-coral text-coral" /> The challenge-first way to meet people
-          </span>
-          <h1 className="mt-6 text-[44px] font-extrabold leading-[1.02] tracking-[-0.04em] sm:text-6xl lg:text-7xl">
-            Don’t just swipe.
-            <br />
-            <span className="text-brand">Earn the connection.</span>
+      <section className="mx-auto grid max-w-6xl items-center gap-14 px-5 pb-20 pt-14 sm:px-8 lg:grid-cols-[1.05fr_.95fr] lg:gap-10 lg:pb-28 lg:pt-24">
+        <div>
+          <h1 className="max-w-[13ch] text-[46px] font-bold leading-[1.02] sm:text-[64px] lg:text-[76px]">
+            Know them before you say hello.
           </h1>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-300">
-            Match360 is where people prove they actually know you before they can message you. Friends, partners, co-founders or study buddies — every connection here was earned.
+          <p className="mt-6 max-w-[46ch] text-lg leading-relaxed text-slate">
+            On Match360 you can’t message someone until you’ve answered questions about their profile, and they’ve answered questions about yours.
+            Friends, partners, co-founders, study partners: every connection starts with attention.
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-            <Link to="/signup" className="btn btn-primary px-7 py-4 text-base">Create your free profile</Link>
-            <Link to="/login" className="btn btn-ghost px-7 py-4 text-base">I already have an account</Link>
+            <Link to="/signup" className="btn btn-primary px-6 py-3.5 text-base">Create your profile</Link>
+            <Link to="/login" className="btn btn-ghost px-6 py-3.5 text-base">Sign in</Link>
           </div>
-          <p className="mt-5 text-sm text-ink-400">Free · 18+ only · Takes 2 minutes</p>
+          <p className="mt-4 text-sm text-slate">Free to join. For adults 18 and over.</p>
         </div>
+        <QuestionCard />
+      </section>
 
-        <div className="relative mx-auto w-full max-w-sm animate-pop">
-          <div className="card overflow-hidden shadow-card">
-            <div className="relative flex h-64 items-center justify-center bg-gradient-to-br from-coral/80 via-fuchsia-600/70 to-violet">
-              <LogoMark size={96} className="drop-shadow-2xl" />
-              <span className="absolute left-4 top-4 rounded-full bg-black/30 px-3 py-1 text-xs font-bold backdrop-blur">Challenge</span>
-            </div>
-            <div className="p-5">
-              <div className="text-xs font-bold uppercase tracking-widest text-ink-400">Question 3 of 5</div>
-              <div className="mt-2 text-lg font-bold">What is their perfect weekend?</div>
-              <div className="mt-4 space-y-2">
-                {['A road trip up north', 'Sunrise hike, then chai', 'Gaming all night'].map((o, i) => (
-                  <div key={o} className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${i === 1 ? 'border-emerald-400/70 bg-emerald-500/15' : 'border-ink-600 bg-ink-800'}`}>{o}</div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="absolute -bottom-6 -left-6 flex items-center gap-3 rounded-2xl border border-ink-600 bg-ink-850/95 px-4 py-3 shadow-card backdrop-blur">
-            <HeartHandshake className="text-coral" />
-            <div>
-              <div className="text-sm font-bold">You scored 100%</div>
-              <div className="text-xs text-ink-400">Request sent with your score</div>
-            </div>
-          </div>
+      <section className="border-y border-rule bg-card">
+        <div className="mx-auto grid max-w-6xl gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[.8fr_1.2fr] lg:py-24">
+          <h2 className="text-3xl font-bold leading-tight sm:text-[40px]">How a connection is made</h2>
+          <ol className="space-y-8">
+            {steps.map(([t, d], i) => (
+              <li key={t} className="grid grid-cols-[44px_1fr] gap-4">
+                <span className="font-display text-[28px] font-bold leading-none text-cobalt">{i + 1}</span>
+                <div>
+                  <h3 className="text-xl font-semibold">{t}</h3>
+                  <p className="mt-1.5 max-w-[56ch] leading-relaxed text-slate">{d}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
 
-      <section className="relative z-10 mx-auto max-w-6xl px-5 py-16 sm:px-8">
-        <h2 className="text-center text-3xl font-extrabold tracking-tight sm:text-4xl">How it works</h2>
-        <div className="mt-10 grid gap-4 md:grid-cols-3">
-          {steps.map((s) => (
-            <div key={s.n} className="card p-6">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand text-lg font-extrabold shadow-glow">{s.n}</div>
-              <h3 className="mt-5 text-lg font-bold">{s.t}</h3>
-              <p className="mt-2 leading-relaxed text-ink-400">{s.d}</p>
+      <section className="mx-auto grid max-w-6xl gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[.8fr_1.2fr] lg:py-24">
+        <h2 className="text-3xl font-bold leading-tight sm:text-[40px]">Designed for people who mean it</h2>
+        <dl className="grid gap-x-10 gap-y-8 sm:grid-cols-2">
+          {details.map(({ i: Icon, t, d }) => (
+            <div key={t}>
+              <dt className="flex items-center gap-2.5 font-semibold">
+                <Icon size={19} className="text-cobalt" /> {t}
+              </dt>
+              <dd className="mt-1.5 leading-relaxed text-slate">{d}</dd>
             </div>
           ))}
+        </dl>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
+        <div className="flex flex-col items-start justify-between gap-6 rounded-2xl bg-ink px-7 py-10 text-white sm:flex-row sm:items-center sm:px-10">
+          <h2 className="max-w-[20ch] text-3xl font-bold leading-tight">Your profile becomes your challenge.</h2>
+          <Link to="/signup" className="btn shrink-0 bg-marker px-6 py-3.5 text-base text-ink hover:brightness-95">Create your profile</Link>
         </div>
       </section>
 
-      <section className="relative z-10 mx-auto max-w-6xl px-5 py-16 sm:px-8">
-        <h2 className="text-center text-3xl font-extrabold tracking-tight sm:text-4xl">Built for meaningful connections</h2>
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map(({ i: Icon, t, d }) => (
-            <div key={t} className="card p-6 transition hover:border-ink-600">
-              <Icon className="text-coral" size={26} />
-              <h3 className="mt-4 font-bold">{t}</h3>
-              <p className="mt-1.5 text-[15px] leading-relaxed text-ink-400">{d}</p>
-            </div>
-          ))}
+      <footer className="border-t border-rule">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-8 text-sm text-slate sm:flex-row sm:items-center sm:justify-between sm:px-8">
+          <Logo size={24} />
+          <div className="flex gap-6">
+            <Link to="/privacy" className="hover:text-ink">Privacy</Link>
+            <Link to="/terms" className="hover:text-ink">Terms</Link>
+            <a href="mailto:shahnawaz@sustainablesolution360.com" className="hover:text-ink">Contact</a>
+          </div>
+          <div>© {new Date().getFullYear()} Sustainable Solution 360</div>
         </div>
-        <div className="mt-14 flex flex-col items-center gap-4 rounded-[32px] border border-ink-700 bg-gradient-to-br from-coral/15 to-violet/20 px-6 py-12 text-center">
-          <h3 className="text-2xl font-extrabold sm:text-3xl">Ready to be known for real?</h3>
-          <Link to="/signup" className="btn btn-primary px-8 py-4 text-base">Join Match360</Link>
-        </div>
-      </section>
-
-      <footer className="relative z-10 mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 border-t border-ink-700/60 px-5 py-8 text-sm text-ink-400 sm:flex-row sm:px-8">
-        <Logo size={26} />
-        <div className="flex gap-6">
-          <Link to="/privacy" className="hover:text-white">Privacy</Link>
-          <Link to="/terms" className="hover:text-white">Terms</Link>
-          <a href="mailto:shahnawaz@sustainablesolution360.com" className="hover:text-white">Contact</a>
-        </div>
-        <div>© {new Date().getFullYear()} Match360 · Sustainable Solution 360</div>
       </footer>
     </div>
   );

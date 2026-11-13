@@ -23,13 +23,13 @@ export default function Legal({ kind }: { kind: 'privacy' | 'terms' }) {
   return (
     <div className="mx-auto max-w-2xl px-5 py-10">
       <Link to="/"><Logo /></Link>
-      <h1 className="mt-10 text-3xl font-extrabold tracking-tight">{kind === 'privacy' ? 'Privacy Policy' : 'Terms of Use'}</h1>
-      <p className="mt-2 text-sm text-ink-400">Last updated: November 2026</p>
+      <h1 className="mt-10 text-3xl font-bold tracking-tight">{kind === 'privacy' ? 'Privacy Policy' : 'Terms of Use'}</h1>
+      <p className="mt-2 text-sm text-slate">Last updated: November 2026</p>
       <div className="mt-8 space-y-6">
         {items.map(([h, t]) => (
           <section key={h}>
             <h2 className="font-bold">{h}</h2>
-            <p className="mt-1.5 leading-relaxed text-ink-300">{t}</p>
+            <p className="mt-1.5 leading-relaxed text-slate">{t}</p>
           </section>
         ))}
       </div>

@@ -34,10 +34,10 @@ export default function UserPage() {
         );
       break;
     case 'sent':
-      cta = <div className="btn btn-ghost w-full cursor-default py-4">{r.status === 'pending' ? `Request sent with ${r.score}% · waiting for ${p.firstName}` : `Request ${r.status}`}</div>;
+      cta = <div className="btn btn-ghost w-full cursor-default py-4">{r.status === 'pending' ? `Request sent with ${r.score}%. Waiting for ${p.firstName}.` : `Request ${r.status}`}</div>;
       break;
     case 'ready_to_send':
-      cta = <Link to={`/challenge/${p.id}?purpose=request`} className="btn btn-primary w-full py-4">You scored {r.score}% — send your request</Link>;
+      cta = <Link to={`/challenge/${p.id}?purpose=request`} className="btn btn-primary w-full py-4">Send your request with {r.score}%</Link>;
       break;
     case 'in_progress':
       cta = <Link to={`/challenge/${p.id}?purpose=request`} className="btn btn-primary w-full py-4">Resume challenge</Link>;
@@ -52,13 +52,13 @@ export default function UserPage() {
   return (
     <div className="mx-auto max-w-xl pb-24 lg:pb-0">
       <div className="mb-4 flex items-center justify-between">
-        <button onClick={() => nav(-1)} className="flex h-10 w-10 items-center justify-center rounded-2xl border border-ink-700 bg-ink-850" aria-label="Back"><ArrowLeft size={19} /></button>
+        <button onClick={() => nav(-1)} className="flex h-10 w-10 items-center justify-center rounded-2xl border border-rule bg-card" aria-label="Back"><ArrowLeft size={19} /></button>
         <button onClick={() => setSafety(true)} className="btn btn-quiet px-3 py-2 text-sm"><ShieldAlert size={17} /> Report or block</button>
       </div>
       <div className="card overflow-hidden">
         <ProfileView p={p} heroClass="h-[min(70dvh,560px)]" />
       </div>
-      <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-20 bg-gradient-to-t from-ink-950 via-ink-950/95 to-transparent px-4 pb-3 pt-6 lg:static lg:mt-5 lg:bg-none lg:p-0">
+      <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-20 bg-gradient-to-t from-paper via-paper/95 to-transparent px-4 pb-3 pt-6 lg:static lg:mt-5 lg:bg-none lg:p-0">
         <div className="mx-auto max-w-xl">{cta}</div>
       </div>
       {intro && <ChallengeIntro open onClose={() => setIntro(null)} user={p} purpose={intro} theirScore={r.type === 'received' ? r.score : undefined} />}

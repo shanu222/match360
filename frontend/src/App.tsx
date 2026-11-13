@@ -38,8 +38,8 @@ function Private({ children, allowIncomplete = false }: { children: ReactNode; a
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-4 p-6 text-center">
         <LogoMark size={56} />
-        <h1 className="text-xl font-extrabold">{e?.status === 503 ? 'Server setup incomplete' : 'Can’t connect right now'}</h1>
-        <p className="max-w-sm text-ink-400">{e?.message || 'Please check your connection.'}</p>
+        <h1 className="text-xl font-bold">{e?.status === 503 ? 'Server setup incomplete' : 'Can’t connect right now'}</h1>
+        <p className="max-w-sm text-slate">{e?.message || 'Please check your connection.'}</p>
         <div className="flex gap-3">
           <button className="btn btn-primary" onClick={refetchMe}>Try again</button>
           <button className="btn btn-ghost" onClick={signOut}>Sign out</button>
@@ -98,7 +98,7 @@ function NotFound() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-4 p-6 text-center">
       <LogoMark size={56} />
-      <h1 className="text-2xl font-extrabold">Page not found</h1>
+      <h1 className="text-2xl font-bold">Page not found</h1>
       <Link to="/" className="btn btn-primary">Go home</Link>
     </div>
   );

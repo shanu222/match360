@@ -42,23 +42,23 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <h1 className="text-3xl font-extrabold tracking-tight">Settings</h1>
+      <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
 
       <section className="card flex items-center gap-4 p-5">
         <Avatar src={u.photos[0]} name={u.name} className="h-14 w-14" />
         <div className="min-w-0 flex-1">
           <div className="truncate font-bold">{u.name}</div>
-          <div className="flex items-center gap-1.5 truncate text-sm text-ink-400">
+          <div className="flex items-center gap-1.5 truncate text-sm text-slate">
             <Mail size={14} /> {u.email}
-            {u.verified && <BadgeCheck size={15} className="fill-sky-500 text-white" />}
+            {u.verified && <BadgeCheck size={15} className="fill-cobalt text-white" />}
           </div>
         </div>
         <Link to="/me/edit" className="btn btn-ghost px-4 py-2 text-sm">Edit</Link>
       </section>
 
       {!u.verified && fbUser && (
-        <section className="card flex flex-col gap-3 border-amber-400/30 p-5 sm:flex-row sm:items-center">
-          <div className="flex-1 text-sm text-ink-300"><b className="text-white">Verify your email</b> to get the verified badge and appear in “Verified” filters.</div>
+        <section className="card flex flex-col gap-3 border-marker p-5 sm:flex-row sm:items-center">
+          <div className="flex-1 text-sm text-slate"><b className="text-ink">Verify your email</b> to get the verified badge and appear in “Verified” filters.</div>
           <button
             className="btn btn-ghost px-4 py-2 text-sm"
             onClick={() =>
@@ -72,7 +72,7 @@ export default function SettingsPage() {
         </section>
       )}
 
-      <section className="card divide-y divide-ink-700 px-5">
+      <section className="card divide-y divide-rule px-5">
         <Row title="Email notifications" text="Only for new challenge requests, new connections and messages while you’re away.">
           <Toggle label="Email notifications" on={u.emailNotifications} onChange={(v) => save.mutate({ emailNotifications: v })} />
         </Row>
@@ -80,7 +80,7 @@ export default function SettingsPage() {
           <Toggle label="Incognito mode" on={u.incognito} onChange={(v) => save.mutate({ incognito: v })} />
         </Row>
         <div className="py-5">
-          <div className="flex items-center justify-between font-bold"><span>Challenge bar</span><span className="text-brand">{bar}%</span></div>
+          <div className="flex items-center justify-between font-bold"><span>Challenge bar</span><span className="text-cobalt">{bar}%</span></div>
           <input
             type="range"
             min={0}
@@ -93,7 +93,7 @@ export default function SettingsPage() {
             onKeyUp={() => threshold !== null && save.mutate({ threshold })}
             className="mt-3 w-full"
           />
-          <p className="mt-1 text-sm text-ink-400">The score you hope people reach. Lower scores are flagged but never blocked.</p>
+          <p className="mt-1 text-sm text-slate">The score you hope people reach. Lower scores are flagged but never blocked.</p>
         </div>
       </section>
 
@@ -102,7 +102,7 @@ export default function SettingsPage() {
         {blocks.isLoading ? (
           <div className="py-4"><Spinner /></div>
         ) : !blocks.data?.blocked.length ? (
-          <p className="mt-1 text-sm text-ink-400">You haven’t blocked anyone.</p>
+          <p className="mt-1 text-sm text-slate">You haven’t blocked anyone.</p>
         ) : (
           <div className="mt-3 space-y-2">
             {blocks.data.blocked.map((b) => (
@@ -116,17 +116,17 @@ export default function SettingsPage() {
         )}
       </section>
 
-      <section className="card divide-y divide-ink-700 px-5">
-        <button onClick={signOut} className="flex w-full items-center gap-3 py-4 font-semibold hover:text-white"><LogOut size={18} /> Sign out</button>
-        <button onClick={() => setDel(true)} className="flex w-full items-center gap-3 py-4 font-semibold text-rose-300"><Trash2 size={18} /> Delete account</button>
+      <section className="card divide-y divide-rule px-5">
+        <button onClick={signOut} className="flex w-full items-center gap-3 py-4 font-semibold hover:text-ink"><LogOut size={18} /> Sign out</button>
+        <button onClick={() => setDel(true)} className="flex w-full items-center gap-3 py-4 font-semibold text-wrong"><Trash2 size={18} /> Delete account</button>
       </section>
-      <p className="pb-6 text-center text-xs text-ink-400">
-        <Link to="/privacy" className="hover:text-white">Privacy</Link> · <Link to="/terms" className="hover:text-white">Terms</Link> · Match360 v1.0
+      <p className="pb-6 text-center text-xs text-slate">
+        <Link to="/privacy" className="hover:text-ink">Privacy</Link> · <Link to="/terms" className="hover:text-ink">Terms</Link> · Match360 v1.0
       </p>
 
       <Modal open={del} onClose={() => setDel(false)} title="Delete your account?">
-        <p className="text-ink-300">This permanently deletes your profile, photos, challenges, connections and messages. This can’t be undone.</p>
-        <label className="label">Type <b className="text-white">DELETE</b> to confirm</label>
+        <p className="text-slate">This permanently deletes your profile, photos, challenges, connections and messages. This can’t be undone.</p>
+        <label className="label">Type <b className="text-ink">DELETE</b> to confirm</label>
         <input className="input" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} autoComplete="off" />
         <div className="mt-6 grid grid-cols-2 gap-3">
           <button className="btn btn-ghost" onClick={() => setDel(false)}>Cancel</button>
@@ -144,7 +144,7 @@ function Row({ title, text, children }: { title: string; text: string; children:
     <div className="flex items-center gap-4 py-5">
       <div className="flex-1">
         <div className="font-bold">{title}</div>
-        <div className="mt-0.5 text-sm text-ink-400">{text}</div>
+        <div className="mt-0.5 text-sm text-slate">{text}</div>
       </div>
       {children}
     </div>

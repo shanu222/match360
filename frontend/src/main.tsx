@@ -7,6 +7,8 @@ import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import App from './App';
+import '@fontsource-variable/bricolage-grotesque/opsz.css';
+import '@fontsource-variable/figtree';
 import './index.css';
 
 const queryClient = new QueryClient({

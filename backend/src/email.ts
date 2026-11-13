@@ -9,16 +9,16 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 
 function layout(title: string, bodyHtml: string, ctaText: string, ctaPath: string) {
   const url = `${config.appUrl}${ctaPath}`;
-  return `<!DOCTYPE html><html><body style="margin:0;background:#f5f3fa;font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#1d1928">
+  return `<!DOCTYPE html><html><body style="margin:0;background:#F5F6FA;font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#101935">
   <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 12px"><tr><td align="center">
-  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 6px 24px rgba(40,20,80,.08)">
-    <tr><td style="background:linear-gradient(135deg,#ff5f6d,#8b5cf6);padding:22px 28px;color:#fff;font-size:22px;font-weight:800;letter-spacing:-.3px">Match360</td></tr>
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #DDE1EC">
+    <tr><td style="padding:22px 28px;border-bottom:1px solid #DDE1EC;color:#101935;font-size:20px;font-weight:700;letter-spacing:-.4px"><span style="display:inline-block;width:14px;height:14px;border:3px solid #2541D8;border-radius:50%;vertical-align:-2px"></span><span style="display:inline-block;width:14px;height:14px;border:3px solid #2541D8;border-radius:50%;margin-left:-8px;vertical-align:-2px;margin-right:8px"></span>match360</td></tr>
     <tr><td style="padding:28px">
       <h1 style="margin:0 0 12px;font-size:21px;line-height:1.3">${esc(title)}</h1>
-      <div style="font-size:15px;line-height:1.6;color:#4a4458">${bodyHtml}</div>
-      <a href="${url}" style="display:inline-block;margin-top:22px;background:linear-gradient(135deg,#ff5f6d,#8b5cf6);color:#fff;text-decoration:none;font-weight:700;padding:13px 24px;border-radius:12px">${esc(ctaText)}</a>
+      <div style="font-size:15px;line-height:1.6;color:#5B6380">${bodyHtml}</div>
+      <a href="${url}" style="display:inline-block;margin-top:22px;background:#2541D8;color:#fff;text-decoration:none;font-weight:600;padding:13px 24px;border-radius:10px">${esc(ctaText)}</a>
     </td></tr>
-    <tr><td style="padding:18px 28px;border-top:1px solid #eee;font-size:12px;color:#8a8399">You’re receiving this because email notifications are on. Turn them off anytime in <a href="${config.appUrl}/settings" style="color:#8b5cf6">Settings</a>.</td></tr>
+    <tr><td style="padding:18px 28px;border-top:1px solid #eee;font-size:12px;color:#5B6380">You’re receiving this because email notifications are on. Turn them off anytime in <a href="${config.appUrl}/settings" style="color:#2541D8">Settings</a>.</td></tr>
   </table></td></tr></table></body></html>`;
 }
 
@@ -74,7 +74,7 @@ export const emails = {
   accepted(toId: string, byName: string, theirScore: number, matchId: string) {
     void send(
       toId,
-      `You're connected with ${byName} 🎉`,
+      `You're connected with ${byName}`,
       layout(
         `${byName} accepted your request`,
         `<p><b>${esc(byName)}</b> scored <b>${theirScore}%</b> on your profile challenge. You can now message each other.</p>`,

@@ -8,7 +8,7 @@ export function PhotoCarousel({ p, className }: { p: Profile; className?: string
   const [i, setI] = useState(0);
   const n = p.photos.length;
   return (
-    <div className={clsx('relative overflow-hidden bg-ink-800', className)}>
+    <div className={clsx('relative overflow-hidden bg-paper', className)}>
       {n ? (
         <img src={p.photos[Math.min(i, n - 1)]} alt={p.name} className="h-full w-full object-cover" draggable={false} />
       ) : (
@@ -38,43 +38,45 @@ export function ProfileView({ p, self = false, heroClass = 'h-[420px]' }: { p: P
     <div>
       <div className="relative">
         <PhotoCarousel p={p} className={heroClass} />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-ink-850" />
-        <span className="absolute left-4 top-7 rounded-full bg-brand px-3 py-1 text-xs font-bold shadow-glow">{p.intent}</span>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/70 to-transparent" />
         {!self && (
-          <div className="absolute right-4 top-6 rounded-2xl border border-white/10 bg-ink-950/70 px-3 py-2 text-center backdrop-blur">
-            <div className="text-base font-extrabold leading-none">{p.compatibility}%</div>
-            <div className="mt-0.5 text-[10px] font-semibold text-ink-300">match</div>
+          <div className="absolute right-4 top-6 rounded-xl bg-white px-3 py-2 text-center shadow-pop">
+            <div className="font-display text-lg font-bold leading-none text-ink">{p.compatibility}%</div>
+            <div className="mt-0.5 text-[11px] font-medium text-slate">in common</div>
           </div>
         )}
-        <div className="absolute inset-x-5 bottom-4">
-          <div className="flex items-center gap-2 text-[28px] font-extrabold leading-tight tracking-tight">
+        <div className="absolute inset-x-5 bottom-4 text-white">
+          <div className="flex items-center gap-2 font-display text-[30px] font-bold leading-tight">
             <span className="truncate">{p.firstName}{p.age ? `, ${p.age}` : ''}</span>
             {p.verified && <Verified size={22} />}
-            {p.activeRecently && !self && <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400 ring-4 ring-emerald-400/20" title="Active now" />}
+            {p.activeRecently && !self && <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-right ring-4 ring-white/25" title="Active now" />}
           </div>
-          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-300">
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-white/90">
             <span className="inline-flex items-center gap-1.5"><Briefcase size={14} />{p.job}</span>
             <span className="inline-flex items-center gap-1.5"><MapPin size={14} />{p.city}</span>
           </div>
         </div>
       </div>
-      <div className="space-y-0 divide-y divide-ink-700">
+      <div className="px-5 pt-4">
+        <span className="inline-flex rounded-full bg-cobalt-soft px-3 py-1 text-[13px] font-semibold text-cobalt">Looking for {p.intent.toLowerCase()}</span>
+      </div>
+      <div className="space-y-0 divide-y divide-rule">
         {p.bio && (
           <Section title="About">
-            <p className="text-[15px] leading-relaxed text-ink-300">{p.bio}</p>
+            <p className="leading-relaxed">{p.bio}</p>
           </Section>
         )}
         {!self && (
           <Section>
-            <div className="flex items-start gap-3 rounded-2xl border border-violet/35 bg-violet/10 p-3.5 text-[13px] leading-relaxed text-violet-100">
-              <Zap size={18} className="mt-0.5 shrink-0 fill-violet-400 text-violet-400" />
+            <div className="flex items-start gap-3 rounded-xl border border-marker bg-marker/25 p-3.5 text-sm leading-relaxed">
+              <Zap size={18} className="mt-0.5 shrink-0 fill-ink" />
               <span>
-                To connect, take a 5-question challenge about {p.firstName}. {p.firstName} hopes for <b className="text-white">{p.threshold}%+</b>. The profile is hidden while you answer — read carefully.
+                To connect, answer five questions about {p.firstName}. {p.firstName} hopes for <b>{p.threshold}% or more</b>. The profile is hidden while you answer.
               </span>
             </div>
           </Section>
         )}
-        <Section title={`Interests${p.sharedInterests.length ? ` · ${p.sharedInterests.length} in common` : ''}`}>
+        <Section title={`Interests${p.sharedInterests.length ? ` (${p.sharedInterests.length} shared)` : ''}`}>
           <div className="flex flex-wrap gap-2">
             {p.interests.map((i) => (
               <span key={i} className={clsx('chip', p.sharedInterests.includes(i) && 'chip-shared')}>{i}</span>
@@ -85,9 +87,9 @@ export function ProfileView({ p, self = false, heroClass = 'h-[420px]' }: { p: P
           <Section title="In their words">
             <div className="space-y-2.5">
               {p.prompts.map((x) => (
-                <div key={x.q} className="rounded-2xl bg-ink-800 p-4">
-                  <div className="text-xs font-semibold text-ink-400">{x.q}</div>
-                  <div className="mt-1 text-[17px] font-semibold leading-snug">{x.a}</div>
+                <div key={x.q} className="rounded-xl border border-rule p-4">
+                  <div className="text-sm text-slate">{x.q}</div>
+                  <div className="mt-1 font-display text-xl font-semibold leading-snug">{x.a}</div>
                 </div>
               ))}
             </div>
@@ -95,9 +97,9 @@ export function ProfileView({ p, self = false, heroClass = 'h-[420px]' }: { p: P
         )}
         {(p.education || p.languages) && (
           <Section title="Details">
-            <div className="space-y-2 text-[15px] text-ink-300">
-              {p.education && <div className="flex items-center gap-2.5"><GraduationCap size={17} className="text-ink-400" />{p.education}</div>}
-              {p.languages && <div className="flex items-center gap-2.5"><Languages size={17} className="text-ink-400" />{p.languages}</div>}
+            <div className="space-y-2 text-[15px] text-slate">
+              {p.education && <div className="flex items-center gap-2.5"><GraduationCap size={17} className="text-slate" />{p.education}</div>}
+              {p.languages && <div className="flex items-center gap-2.5"><Languages size={17} className="text-slate" />{p.languages}</div>}
             </div>
           </Section>
         )}
@@ -109,7 +111,7 @@ export function ProfileView({ p, self = false, heroClass = 'h-[420px]' }: { p: P
 function Section({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
     <div className="px-5 py-5">
-      {title && <h4 className="mb-3 text-[11px] font-bold uppercase tracking-[.12em] text-ink-400">{title}</h4>}
+      {title && <h4 className="mb-3 text-sm font-semibold text-slate">{title}</h4>}
       {children}
     </div>
   );

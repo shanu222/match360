@@ -38,7 +38,7 @@ export default function ProfileEditor({ mode }: { mode: 'onboarding' | 'edit' })
   const { me, fbUser, signOut } = useAuth();
   const metaQ = useMeta();
   if (!me || !metaQ.data) {
-    if (metaQ.isError) return <div className="p-10 text-center text-ink-300">Couldn’t reach the server. <button className="underline" onClick={() => metaQ.refetch()}>Retry</button></div>;
+    if (metaQ.isError) return <div className="p-10 text-center text-slate">Couldn’t reach the server. <button className="underline" onClick={() => metaQ.refetch()}>Retry</button></div>;
     return <FullScreenLoader />;
   }
   return <Editor mode={mode} user={me.user} meta={metaQ.data} defaultName={fbUser?.displayName || ''} onSignOut={signOut} />;
@@ -108,7 +108,7 @@ function Editor({ mode, user, meta, defaultName, onSignOut }: { mode: 'onboardin
     }
     if (s === 1 && f.interests.length < 3) return 'Pick at least 3 interests.';
     if (s === 2) {
-      if (f.prompts.filter((p) => p.a.trim()).length < 2) return 'Answer at least 2 prompts — they become your challenge.';
+      if (f.prompts.filter((p) => p.a.trim()).length < 2) return 'Answer at least two prompts. They become your challenge questions.';
       const qs = f.prompts.map((p) => p.q);
       if (new Set(qs).size !== qs.length) return 'Choose a different question for each prompt.';
     }
@@ -132,7 +132,7 @@ function Editor({ mode, user, meta, defaultName, onSignOut }: { mode: 'onboardin
       qc.invalidateQueries({ queryKey: ['me'] });
       qc.invalidateQueries({ queryKey: ['discover'] });
       if (mode === 'onboarding') {
-        toast({ title: `Welcome, ${res.user.firstName}! 🎉`, body: 'Your profile is live. Start exploring.', tone: 'success' });
+        toast({ title: `Welcome, ${res.user.firstName}`, body: 'Your profile is live.', tone: 'success' });
         nav('/discover', { replace: true });
       } else {
         toast({ title: 'Profile saved', body: 'New challenges will use your latest answers.', tone: 'success' });
@@ -153,34 +153,34 @@ function Editor({ mode, user, meta, defaultName, onSignOut }: { mode: 'onboardin
       {mode === 'onboarding' && (
         <div className="mb-6 flex items-center justify-between">
           <Logo size={30} />
-          <button onClick={onSignOut} className="text-sm font-semibold text-ink-400 hover:text-white">Sign out</button>
+          <button onClick={onSignOut} className="text-sm font-semibold text-slate hover:text-ink">Sign out</button>
         </div>
       )}
       <div className="mb-6 flex items-center gap-3">
         {(step > 0 || mode === 'edit') && (
-          <button aria-label="Back" onClick={() => (step > 0 ? setStep(step - 1) : nav(-1))} className="flex h-10 w-10 items-center justify-center rounded-2xl border border-ink-700 bg-ink-850">
+          <button aria-label="Back" onClick={() => (step > 0 ? setStep(step - 1) : nav(-1))} className="flex h-10 w-10 items-center justify-center rounded-2xl border border-rule bg-card">
             <ArrowLeft size={19} />
           </button>
         )}
         <div className="flex flex-1 gap-2">
           {[0, 1, 2].map((i) => (
-            <span key={i} className={clsx('h-1.5 flex-1 rounded-full transition', i <= step ? 'bg-brand' : 'bg-ink-700')} />
+            <span key={i} className={clsx('h-1.5 flex-1 rounded-full transition', i <= step ? 'bg-cobalt' : 'bg-rule')} />
           ))}
         </div>
-        <span className="text-xs font-bold text-ink-400">{step + 1}/3</span>
+        <span className="text-xs font-bold text-slate">{step + 1}/3</span>
       </div>
 
       {step === 0 && (
-        <div className="animate-fade-up">
-          <h1 className="text-3xl font-extrabold tracking-tight">{mode === 'onboarding' ? 'Let’s set up your profile' : 'Edit your profile'}</h1>
-          <p className="mt-2 text-ink-400">Clear, recent photos get far more challenge requests.</p>
+        <div className="animate-rise">
+          <h1 className="text-3xl font-bold tracking-tight">{mode === 'onboarding' ? 'Let’s set up your profile' : 'Edit your profile'}</h1>
+          <p className="mt-2 text-slate">Clear, recent photos get far more challenge requests.</p>
 
           <div className="mt-6 grid grid-cols-3 gap-3">
             {Array.from({ length: meta.maxPhotos }).map((_, i) => {
               const url = f.photos[i];
               if (url)
                 return (
-                  <div key={url} className="group relative aspect-[3/4] overflow-hidden rounded-2xl border border-ink-700 bg-ink-800">
+                  <div key={url} className="group relative aspect-[3/4] overflow-hidden rounded-2xl border border-rule bg-paper">
                     <img src={url} alt="" className="h-full w-full object-cover" />
                     {i === 0 && <span className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-bold backdrop-blur">Main</span>}
                     <div className="absolute inset-x-2 bottom-2 flex justify-end gap-1.5">
@@ -200,8 +200,8 @@ function Editor({ mode, user, meta, defaultName, onSignOut }: { mode: 'onboardin
                 <label
                   key={`e${i}`}
                   className={clsx(
-                    'flex aspect-[3/4] flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed text-ink-400 transition',
-                    meta.uploadsEnabled && isNext ? 'cursor-pointer border-ink-600 bg-ink-850 hover:border-coral/60 hover:text-white' : 'border-ink-700/60 bg-ink-900 opacity-60',
+                    'flex aspect-[3/4] flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed text-slate transition',
+                    meta.uploadsEnabled && isNext ? 'cursor-pointer border-rule bg-card hover:border-cobalt/40 hover:text-ink' : 'border-rule bg-card opacity-60',
                   )}
                 >
                   {isNext && uploading ? <Loader2 className="animate-spin" /> : <ImagePlus size={22} />}
@@ -213,7 +213,7 @@ function Editor({ mode, user, meta, defaultName, onSignOut }: { mode: 'onboardin
               );
             })}
           </div>
-          {!meta.uploadsEnabled && <p className="mt-3 text-xs text-ink-400">Photo uploads will be available once storage is configured. Your initials are used for now.</p>}
+          {!meta.uploadsEnabled && <p className="mt-3 text-xs text-slate">Photo uploads will be available once storage is configured. Your initials are used for now.</p>}
 
           <label className="label" htmlFor="name">Full name</label>
           <input id="name" className="input" value={f.name} maxLength={60} onChange={(e) => set('name', e.target.value)} placeholder="Your name" autoComplete="name" />
@@ -221,7 +221,7 @@ function Editor({ mode, user, meta, defaultName, onSignOut }: { mode: 'onboardin
             <div>
               <label className="label" htmlFor="dob">Date of birth</label>
               <input id="dob" type="date" className="input" value={f.dob} max={maxDob()} min="1920-01-01" onChange={(e) => set('dob', e.target.value)} />
-              <p className="mt-1.5 text-xs text-ink-400">Only your age is shown.</p>
+              <p className="mt-1.5 text-xs text-slate">Only your age is shown.</p>
             </div>
             <div>
               <label className="label" htmlFor="city">City</label>
@@ -235,7 +235,7 @@ function Editor({ mode, user, meta, defaultName, onSignOut }: { mode: 'onboardin
           <input id="job" className="input" value={f.job} maxLength={60} onChange={(e) => set('job', e.target.value)} placeholder="e.g. Software Engineer, Student, Doctor" />
           <div className="grid gap-x-3 sm:grid-cols-2">
             <div>
-              <label className="label" htmlFor="edu">Education <span className="font-normal text-ink-400">(optional)</span></label>
+              <label className="label" htmlFor="edu">Education <span className="font-normal text-slate">(optional)</span></label>
               <input id="edu" className="input" value={f.education} maxLength={80} onChange={(e) => set('education', e.target.value)} placeholder="University or school" />
             </div>
             <div>
@@ -247,16 +247,16 @@ function Editor({ mode, user, meta, defaultName, onSignOut }: { mode: 'onboardin
       )}
 
       {step === 1 && (
-        <div className="animate-fade-up">
-          <h1 className="text-3xl font-extrabold tracking-tight">What brings you here?</h1>
-          <p className="mt-2 text-ink-400">This shapes who you see and what your challenge asks.</p>
+        <div className="animate-rise">
+          <h1 className="text-3xl font-bold tracking-tight">What brings you here?</h1>
+          <p className="mt-2 text-slate">This shapes who you see and what your challenge asks.</p>
           <label className="label">I’m looking for</label>
           <div className="flex flex-wrap gap-2">
             {meta.intents.map((i) => (
               <button key={i} onClick={() => set('intent', i)} className={clsx('chip px-4 py-2', f.intent === i && 'chip-on')}>{i}</button>
             ))}
           </div>
-          <label className="label">Interests <span className="font-normal text-ink-400">· pick 3–10 ({f.interests.length} selected)</span></label>
+          <label className="label">Interests <span className="font-normal text-slate">· pick 3–10 ({f.interests.length} selected)</span></label>
           <div className="flex flex-wrap gap-2">
             {meta.interests.map((i) => (
               <button key={i} onClick={() => toggleInterest(i)} className={clsx('chip px-4 py-2', f.interests.includes(i) && 'chip-on')}>{i}</button>
@@ -266,18 +266,18 @@ function Editor({ mode, user, meta, defaultName, onSignOut }: { mode: 'onboardin
       )}
 
       {step === 2 && (
-        <div className="animate-fade-up">
-          <h1 className="text-3xl font-extrabold tracking-tight">Your story</h1>
-          <p className="mt-2 text-ink-400">Your answers become the questions people must answer to reach you. Be specific and genuine.</p>
+        <div className="animate-rise">
+          <h1 className="text-3xl font-bold tracking-tight">Your story</h1>
+          <p className="mt-2 text-slate">Your answers become the questions people must answer to reach you. Be specific and genuine.</p>
           {f.prompts.map((p, i) => (
-            <div key={i} className="mt-5 rounded-3xl border border-ink-700 bg-ink-850 p-4">
+            <div key={i} className="mt-5 rounded-2xl border border-rule bg-card p-4">
               <select
                 aria-label={`Prompt ${i + 1}`}
-                className="w-full bg-transparent text-sm font-bold text-ink-300 outline-none"
+                className="w-full bg-transparent text-sm font-bold text-slate outline-none"
                 value={p.q}
                 onChange={(e) => set('prompts', f.prompts.map((x, k) => (k === i ? { ...x, q: e.target.value } : x)))}
               >
-                {meta.prompts.map((q) => <option key={q} value={q} className="bg-ink-900">{q}</option>)}
+                {meta.prompts.map((q) => <option key={q} value={q} className="bg-card">{q}</option>)}
               </select>
               <input
                 className="input mt-2.5"
@@ -288,26 +288,26 @@ function Editor({ mode, user, meta, defaultName, onSignOut }: { mode: 'onboardin
               />
             </div>
           ))}
-          <label className="label" htmlFor="bio">Short bio <span className="font-normal text-ink-400">(optional)</span></label>
+          <label className="label" htmlFor="bio">Short bio <span className="font-normal text-slate">(optional)</span></label>
           <textarea id="bio" className="input min-h-[96px] resize-none" maxLength={300} value={f.bio} onChange={(e) => set('bio', e.target.value)} placeholder="A line or two that sums you up" />
-          <div className="mt-1 text-right text-xs text-ink-400">{f.bio.length}/300</div>
-          <div className="mt-4 rounded-3xl border border-ink-700 bg-ink-850 p-5">
+          <div className="mt-1 text-right text-xs text-slate">{f.bio.length}/300</div>
+          <div className="mt-4 rounded-2xl border border-rule bg-card p-5">
             <div className="flex items-center justify-between font-bold">
               <span>Your challenge bar</span>
-              <span className="text-brand text-lg">{f.threshold}%</span>
+              <span className="text-cobalt text-lg">{f.threshold}%</span>
             </div>
             <input type="range" min={0} max={100} step={5} value={f.threshold} onChange={(e) => set('threshold', Number(e.target.value))} className="mt-3 w-full" aria-label="Challenge bar" />
-            <p className="mt-1 text-xs leading-relaxed text-ink-400">People see the score you hope for. Requests below it are flagged, but you always decide.</p>
+            <p className="mt-1 text-xs leading-relaxed text-slate">People see the score you hope for. Requests below it are flagged, but you always decide.</p>
           </div>
         </div>
       )}
 
-      {err && <p role="alert" className="mt-6 rounded-2xl bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{err}</p>}
+      {err && <p role="alert" className="mt-6 rounded-2xl bg-wrong/10 px-4 py-3 text-sm text-wrong">{err}</p>}
 
-      <div className={`fixed inset-x-0 bottom-0 z-20 border-t border-ink-700/60 bg-ink-950/90 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 backdrop-blur ${mode === 'edit' ? 'lg:left-72' : ''}`}>
+      <div className={`fixed inset-x-0 bottom-0 z-20 border-t border-rule bg-paper/90 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 backdrop-blur ${mode === 'edit' ? 'lg:left-72' : ''}`}>
         <div className="mx-auto max-w-2xl">
           <button onClick={next} disabled={saving} className="btn btn-primary w-full py-4 text-base">
-            {saving ? <Spinner className="text-white" size={20} /> : step < 2 ? 'Continue' : mode === 'onboarding' ? 'Finish & start matching ✨' : 'Save changes'}
+            {saving ? <Spinner className="text-white" size={20} /> : step < 2 ? 'Continue' : mode === 'onboarding' ? 'Finish profile' : 'Save changes'}
           </button>
         </div>
       </div>

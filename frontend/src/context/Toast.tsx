@@ -32,14 +32,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               dismiss(t.id);
             }}
             className={clsx(
-              'pointer-events-auto flex w-full max-w-sm animate-fade-up cursor-pointer items-center gap-3 rounded-2xl border bg-ink-800/95 p-3.5 shadow-card backdrop-blur',
-              t.tone === 'error' ? 'border-rose-500/40' : t.tone === 'success' ? 'border-emerald-500/40' : 'border-ink-600',
+              'pointer-events-auto flex w-full max-w-sm animate-rise cursor-pointer items-center gap-3 rounded-xl border border-rule border-l-4 bg-card p-3.5 shadow-lift',
+              t.tone === 'error' ? 'border-l-wrong' : t.tone === 'success' ? 'border-l-right' : 'border-l-cobalt',
             )}
           >
             {t.image ? <img src={t.image} alt="" className="h-10 w-10 rounded-xl object-cover" /> : null}
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-bold text-white">{t.title}</div>
-              {t.body ? <div className="mt-0.5 text-[13px] leading-snug text-ink-300">{t.body}</div> : null}
+              <div className="text-sm font-semibold text-ink">{t.title}</div>
+              {t.body ? <div className="mt-0.5 text-[13px] leading-snug text-slate">{t.body}</div> : null}
             </div>
             <button
               aria-label="Dismiss"
@@ -47,7 +47,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 e.stopPropagation();
                 dismiss(t.id);
               }}
-              className="rounded-lg p-1 text-ink-400 hover:bg-ink-700 hover:text-white"
+              className="rounded-lg p-1 text-slate hover:bg-rule hover:text-ink"
             >
               <X size={16} />
             </button>

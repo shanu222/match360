@@ -19,21 +19,21 @@ export function ChallengeIntro({
   return (
     <Modal open={open} onClose={onClose}>
       <div className="flex flex-col items-center text-center">
-        <Avatar src={user.photos[0]} name={user.name} className="h-20 w-20" rounded="rounded-3xl" />
-        <h2 className="mt-4 text-2xl font-extrabold tracking-tight">
+        <Avatar src={user.photos[0]} name={user.name} className="h-20 w-20" rounded="rounded-2xl" />
+        <h2 className="mt-4 text-2xl font-bold tracking-tight">
           {purpose === 'request' ? `Ready for ${user.firstName}’s challenge?` : `Your turn: how well do you know ${user.firstName}?`}
         </h2>
         {purpose === 'accept' && theirScore != null && (
-          <p className="mt-2 text-ink-300">
-            {user.firstName} scored <b className="text-white">{theirScore}%</b> on you. Answer a few questions about {user.firstName} to accept — your score is shared back.
+          <p className="mt-2 text-slate">
+            {user.firstName} scored <b className="text-ink">{theirScore}%</b> on you. To accept, answer five questions about {user.firstName}. Your score is shared with them.
           </p>
         )}
       </div>
-      <ul className="mt-6 space-y-3 text-[15px] text-ink-300">
-        <li className="flex gap-3"><ListChecks className="shrink-0 text-coral" size={20} />5 questions built from {user.firstName}’s profile</li>
-        <li className="flex gap-3"><Clock className="shrink-0 text-coral" size={20} />20 seconds per question</li>
-        <li className="flex gap-3"><Eye className="shrink-0 text-coral" size={20} />The profile is hidden while you answer</li>
-        {purpose === 'request' && <li className="flex gap-3"><Target className="shrink-0 text-coral" size={20} />{user.firstName} hopes for {user.threshold}%+ · one attempt per day</li>}
+      <ul className="mt-6 space-y-3 text-[15px] text-slate">
+        <li className="flex gap-3"><ListChecks className="shrink-0 text-cobalt" size={20} />5 questions built from {user.firstName}’s profile</li>
+        <li className="flex gap-3"><Clock className="shrink-0 text-cobalt" size={20} />20 seconds per question</li>
+        <li className="flex gap-3"><Eye className="shrink-0 text-cobalt" size={20} />The profile is hidden while you answer</li>
+        {purpose === 'request' && <li className="flex gap-3"><Target className="shrink-0 text-cobalt" size={20} />{user.firstName} hopes for {user.threshold}% or more. You get one attempt a day.</li>}
       </ul>
       <div className="mt-7 grid grid-cols-2 gap-3">
         <button

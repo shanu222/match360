@@ -6,10 +6,11 @@ import {
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   updateProfile,
 } from 'firebase/auth';
 import { Eye, EyeOff, MailCheck } from 'lucide-react';
-import { auth, firebaseConfigured, friendlyAuthError, googleProvider, testAuthEnabled } from '../lib/firebase';
+import { auth, firebaseConfigured, friendlyAuthError, googleProvider, preferRedirect, testAuthEnabled } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { Logo } from '../components/Logo';
 import { Spinner } from '../components/ui';
@@ -29,7 +30,7 @@ function GoogleIcon() {
 
 export default function Auth({ mode }: { mode: Mode }) {
   const nav = useNavigate();
-  const { testSignIn } = useAuth();
+  const { testSignIn, redirectError } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -74,106 +75,123 @@ export default function Auth({ mode }: { mode: Mode }) {
     setErr('');
     setBusy(true);
     try {
+      if (preferRedirect()) {
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      }
       await signInWithPopup(auth, googleProvider);
       nav('/discover');
     } catch (e: any) {
-      setErr(friendlyAuthError(e?.code));
+      // Popup blocked or unsupported → fall back to a full-page redirect.
+      if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/web-storage-unsupported'].includes(e?.code)) {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (e2: any) {
+          setErr(friendlyAuthError(e2?.code));
+        }
+      } else if (e?.code !== 'auth/popup-closed-by-user' && e?.code !== 'auth/cancelled-popup-request') {
+        setErr(friendlyAuthError(e?.code));
+      }
     } finally {
       setBusy(false);
     }
   };
 
-  const title = mode === 'login' ? 'Welcome back' : mode === 'signup' ? 'Create your account' : 'Reset your password';
+  const shownErr = err || (redirectError ? friendlyAuthError(redirectError) : '');
+  const title = mode === 'login' ? 'Sign in' : mode === 'signup' ? 'Create your account' : 'Reset your password';
   const sub =
-    mode === 'login' ? 'Sign in to see your challenges and chats.' : mode === 'signup' ? 'Join the people who connect with intention.' : 'We’ll email you a secure link to set a new password.';
+    mode === 'login' ? 'Welcome back. Your challenges and chats are waiting.' : mode === 'signup' ? 'It takes about two minutes to set up your profile.' : 'Enter your email and we’ll send you a link to set a new password.';
 
   return (
-    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-10">
-      <div className="pointer-events-none absolute -left-32 top-0 h-96 w-96 rounded-full bg-coral/20 blur-[110px]" />
-      <div className="pointer-events-none absolute -right-32 bottom-0 h-96 w-96 rounded-full bg-violet/25 blur-[110px]" />
-      <div className="relative w-full max-w-md animate-fade-up">
-        <Link to="/" className="mb-8 flex justify-center"><Logo size={40} /></Link>
-        <div className="card p-6 shadow-card sm:p-8">
-          <h1 className="text-2xl font-extrabold tracking-tight">{title}</h1>
-          <p className="mt-1.5 text-ink-400">{sub}</p>
+    <div className="flex min-h-dvh flex-col bg-paper">
+      <header className="px-5 pt-[calc(1.25rem+env(safe-area-inset-top))] sm:px-8">
+        <Link to="/" aria-label="Match360 home"><Logo /></Link>
+      </header>
+      <main className="flex flex-1 items-start justify-center px-4 pb-12 pt-10 sm:items-center sm:pt-0">
+        <div className="w-full max-w-[420px] animate-rise">
+          <h1 className="text-[34px] font-bold leading-tight">{title}</h1>
+          <p className="mt-2 text-slate">{sub}</p>
 
-          {!firebaseConfigured && !testAuthEnabled ? (
-            <div className="mt-6 rounded-2xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm text-amber-100">
-              Firebase is not configured. Add the <code>VITE_FIREBASE_*</code> variables in Vercel and redeploy.
-            </div>
-          ) : sent ? (
-            <div className="mt-6 flex items-start gap-3 rounded-2xl border border-emerald-400/40 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-              <MailCheck className="shrink-0" size={20} />
-              If an account exists for {email}, a reset link is on its way. Check your inbox and spam folder.
-            </div>
-          ) : (
-            <>
-              {mode !== 'reset' && !testAuthEnabled && (
-                <>
-                  <button onClick={google} disabled={busy} className="btn btn-ghost mt-6 w-full bg-white/95 text-ink-950 hover:bg-white">
-                    <GoogleIcon /> Continue with Google
-                  </button>
-                  <div className="my-5 flex items-center gap-3 text-xs font-semibold text-ink-400">
-                    <span className="h-px flex-1 bg-ink-700" /> or use email <span className="h-px flex-1 bg-ink-700" />
-                  </div>
-                </>
-              )}
-              <form onSubmit={submit} className={mode === 'reset' || testAuthEnabled ? 'mt-6' : ''} noValidate>
-                {mode === 'signup' && (
-                  <>
-                    <label className="label mt-0" htmlFor="name">Your name</label>
-                    <input id="name" className="input" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" />
-                  </>
-                )}
-                <label className={`label ${mode === 'signup' ? '' : 'mt-0'}`} htmlFor="email">Email</label>
-                <input id="email" className="input" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+          <div className="mt-7 rounded-2xl border border-rule bg-card p-6 shadow-pop sm:p-7">
+            {!firebaseConfigured && !testAuthEnabled ? (
+              <div className="rounded-xl border border-marker bg-marker/30 p-4 text-sm">
+                Sign-in isn’t configured. Add the <code>VITE_FIREBASE_*</code> variables in Vercel and redeploy.
+              </div>
+            ) : sent ? (
+              <div className="flex items-start gap-3 rounded-xl border border-right/40 bg-right/10 p-4 text-sm">
+                <MailCheck className="shrink-0 text-right" size={20} />
+                If an account exists for {email}, a reset link is on its way. Check your inbox and spam folder.
+              </div>
+            ) : (
+              <>
                 {mode !== 'reset' && !testAuthEnabled && (
                   <>
-                    <div className="flex items-center justify-between">
-                      <label className="label" htmlFor="pw">Password</label>
-                      {mode === 'login' && <Link to="/reset" className="mt-3 text-[13px] font-semibold text-violet-400 hover:text-violet-300">Forgot password?</Link>}
-                    </div>
-                    <div className="relative">
-                      <input
-                        id="pw"
-                        className="input pr-12"
-                        type={show ? 'text' : 'password'}
-                        autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder={mode === 'signup' ? 'At least 8 characters' : 'Your password'}
-                      />
-                      <button type="button" onClick={() => setShow(!show)} aria-label={show ? 'Hide password' : 'Show password'} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-ink-400 hover:text-white">
-                        {show ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
+                    <button onClick={google} disabled={busy} className="btn btn-ghost w-full">
+                      <GoogleIcon /> Continue with Google
+                    </button>
+                    <div className="my-5 flex items-center gap-3 text-xs text-slate">
+                      <span className="h-px flex-1 bg-rule" /> or with email <span className="h-px flex-1 bg-rule" />
                     </div>
                   </>
                 )}
-                {err && <p role="alert" className="mt-4 rounded-xl bg-rose-500/10 px-3 py-2.5 text-sm text-rose-200">{err}</p>}
-                <button type="submit" disabled={busy || !email} className="btn btn-primary mt-6 w-full py-3.5">
-                  {busy ? <Spinner size={20} className="text-white" /> : mode === 'login' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send reset link'}
-                </button>
-              </form>
-            </>
-          )}
+                <form onSubmit={submit} noValidate>
+                  {mode === 'signup' && (
+                    <>
+                      <label className="label mt-0" htmlFor="name">Full name</label>
+                      <input id="name" className="input" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
+                    </>
+                  )}
+                  <label className={`label ${mode === 'signup' ? '' : 'mt-0'}`} htmlFor="email">Email</label>
+                  <input id="email" className="input" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+                  {mode !== 'reset' && !testAuthEnabled && (
+                    <>
+                      <div className="flex items-baseline justify-between">
+                        <label className="label" htmlFor="pw">Password</label>
+                        {mode === 'login' && <Link to="/reset" className="text-sm font-medium text-cobalt hover:underline">Forgot password?</Link>}
+                      </div>
+                      <div className="relative">
+                        <input
+                          id="pw"
+                          className="input pr-12"
+                          type={show ? 'text' : 'password'}
+                          autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder={mode === 'signup' ? 'At least 8 characters' : ''}
+                        />
+                        <button type="button" onClick={() => setShow(!show)} aria-label={show ? 'Hide password' : 'Show password'} className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate hover:text-ink">
+                          {show ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  {shownErr && <p role="alert" className="mt-4 rounded-xl bg-wrong/10 px-3.5 py-2.5 text-sm text-wrong">{shownErr}</p>}
+                  <button type="submit" disabled={busy || !email} className="btn btn-primary mt-6 w-full">
+                    {busy ? <Spinner size={20} className="text-white" /> : mode === 'login' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send reset link'}
+                  </button>
+                </form>
+              </>
+            )}
+          </div>
 
-          <p className="mt-6 text-center text-sm text-ink-400">
+          <p className="mt-6 text-center text-sm text-slate">
             {mode === 'login' ? (
-              <>New to Match360? <Link to="/signup" className="font-bold text-white hover:underline">Create an account</Link></>
+              <>New to Match360? <Link to="/signup" className="font-semibold text-cobalt hover:underline">Create an account</Link></>
             ) : mode === 'signup' ? (
-              <>Already have an account? <Link to="/login" className="font-bold text-white hover:underline">Sign in</Link></>
+              <>Already have an account? <Link to="/login" className="font-semibold text-cobalt hover:underline">Sign in</Link></>
             ) : (
-              <Link to="/login" className="font-bold text-white hover:underline">Back to sign in</Link>
+              <Link to="/login" className="font-semibold text-cobalt hover:underline">Back to sign in</Link>
             )}
           </p>
+          {mode === 'signup' && (
+            <p className="mt-4 text-center text-xs leading-relaxed text-slate">
+              By creating an account you confirm you’re 18 or older and agree to the <Link to="/terms" className="underline">Terms</Link> and <Link to="/privacy" className="underline">Privacy Policy</Link>.
+            </p>
+          )}
         </div>
-        {mode === 'signup' && (
-          <p className="mt-5 text-center text-xs leading-relaxed text-ink-400">
-            By creating an account you confirm you are 18+ and agree to our <Link to="/terms" className="underline">Terms</Link> and <Link to="/privacy" className="underline">Privacy Policy</Link>.
-          </p>
-        )}
-      </div>
+      </main>
     </div>
   );
 }

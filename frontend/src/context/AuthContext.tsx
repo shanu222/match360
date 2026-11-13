@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { onIdTokenChanged, signOut as fbSignOut, type User } from 'firebase/auth';
+import { getRedirectResult, onIdTokenChanged, signOut as fbSignOut, type User } from 'firebase/auth';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { auth, testAuthEnabled } from '../lib/firebase';
 import { api, ApiError } from '../lib/api';
@@ -13,6 +13,7 @@ interface Ctx {
   me: MeResponse | undefined;
   meLoading: boolean;
   meError: unknown;
+  redirectError: string;
   refetchMe: () => void;
   signOut: () => Promise<void>;
   testSignIn: (email: string) => void;
@@ -23,6 +24,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<Status>('loading');
   const [fbUser, setFbUser] = useState<User | null>(null);
+  const [redirectError, setRedirectError] = useState('');
+
+  // Completes a Google sign-in that used the redirect flow.
+  useEffect(() => {
+    if (!auth) return;
+    getRedirectResult(auth).catch((e) => setRedirectError(e?.code || 'auth/unknown'));
+  }, []);
 
   useEffect(() => {
     if (testAuthEnabled && localStorage.getItem('m360_test_token')) {
@@ -59,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       me: meQ.data,
       meLoading: meQ.isLoading,
       meError: meQ.error,
+      redirectError,
       refetchMe: () => void meQ.refetch(),
       signOut: async () => {
         disconnectSocket();
@@ -73,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setStatus('signedIn');
       },
     }),
-    [status, fbUser, meQ.data, meQ.isLoading, meQ.error, qc],
+    [status, fbUser, meQ.data, meQ.isLoading, meQ.error, redirectError, qc],
   );
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 }

@@ -83,14 +83,14 @@ export default function Discover() {
               <SwipeCard key={cur.id} p={cur} onPass={() => doPass(cur.id)} onChallenge={() => setIntro(cur)} />
             </div>
             <div className="mt-5 flex items-center justify-center gap-5">
-              <button aria-label="Pass" onClick={() => doPass(cur.id)} className="flex h-16 w-16 items-center justify-center rounded-full border border-ink-600 bg-ink-850 shadow-card transition hover:border-rose-400/60 active:scale-95">
-                <X size={28} className="text-rose-400" />
+              <button aria-label="Pass" onClick={() => doPass(cur.id)} className="flex h-16 w-16 items-center justify-center rounded-full border border-rule bg-card shadow-lift transition hover:border-wrong/40 active:scale-95">
+                <X size={28} className="text-wrong" />
               </button>
-              <button aria-label="Take challenge" onClick={() => setIntro(cur)} className="flex h-20 w-20 items-center justify-center rounded-full bg-brand shadow-glow transition hover:brightness-110 active:scale-95">
+              <button aria-label="Take challenge" onClick={() => setIntro(cur)} className="flex h-20 w-20 items-center justify-center rounded-full bg-cobalt  transition hover:brightness-110 active:scale-95">
                 <Zap size={32} className="fill-white text-white" />
               </button>
-              <button aria-label="View full profile" onClick={() => nav(`/u/${cur.id}`)} className="flex h-16 w-16 items-center justify-center rounded-full border border-ink-600 bg-ink-850 shadow-card transition hover:border-violet/60 active:scale-95">
-                <Info size={26} className="text-violet-400" />
+              <button aria-label="View full profile" onClick={() => nav(`/u/${cur.id}`)} className="flex h-16 w-16 items-center justify-center rounded-full border border-rule bg-card shadow-lift transition hover:border-rule active:scale-95">
+                <Info size={26} className="text-cobalt" />
               </button>
             </div>
           </>
@@ -100,26 +100,26 @@ export default function Discover() {
       <aside className="hidden lg:block">
         <div className="sticky top-10 space-y-4">
           <div className="card p-6">
-            <h3 className="text-lg font-extrabold">How to stand out</h3>
-            <ol className="mt-4 space-y-3 text-[15px] leading-relaxed text-ink-300">
-              <li><b className="text-white">1.</b> Read the whole profile — prompts are the trickiest questions.</li>
-              <li><b className="text-white">2.</b> Take the challenge. Your score travels with your request.</li>
-              <li><b className="text-white">3.</b> Add a personal note that references something specific.</li>
+            <h3 className="text-lg font-bold">How to stand out</h3>
+            <ol className="mt-4 space-y-3 text-[15px] leading-relaxed text-slate">
+              <li><b className="text-ink">1.</b> Read the whole profile. The written answers make the hardest questions.</li>
+              <li><b className="text-ink">2.</b> Take the challenge. Your score travels with your request.</li>
+              <li><b className="text-ink">3.</b> Add a personal note that references something specific.</li>
             </ol>
-            <p className="mt-4 text-xs text-ink-400">Keyboard: ← pass · → challenge</p>
+            <p className="mt-4 text-xs text-slate">Use the left arrow to pass and the right arrow to start a challenge.</p>
           </div>
           {list.length > 1 && (
             <div className="card p-5">
-              <h3 className="mb-3 text-sm font-bold text-ink-300">Up next</h3>
+              <h3 className="mb-3 text-sm font-bold text-slate">Up next</h3>
               <div className="space-y-2">
                 {list.slice(1, 6).map((p) => (
-                  <button key={p.id} onClick={() => nav(`/u/${p.id}`)} className="flex w-full items-center gap-3 rounded-2xl p-2 text-left hover:bg-ink-800">
+                  <button key={p.id} onClick={() => nav(`/u/${p.id}`)} className="flex w-full items-center gap-3 rounded-2xl p-2 text-left hover:bg-paper">
                     <Avatar src={p.photos[0]} name={p.name} className="h-11 w-11" />
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-bold">{p.firstName}{p.age ? `, ${p.age}` : ''}</div>
-                      <div className="truncate text-xs text-ink-400">{p.job} · {p.city}</div>
+                      <div className="truncate text-xs text-slate">{p.job}, {p.city}</div>
                     </div>
-                    <span className="text-xs font-bold text-ink-300">{p.compatibility}%</span>
+                    <span className="text-xs font-bold text-slate">{p.compatibility}%</span>
                   </button>
                 ))}
               </div>
@@ -198,11 +198,11 @@ function SwipeCard({ p, onPass, onChallenge }: { p: Profile; onPass: () => void;
       onPointerMove={move}
       onPointerUp={up}
       onPointerCancel={up}
-      className="card absolute inset-0 overflow-hidden shadow-card"
+      className="card absolute inset-0 overflow-hidden shadow-lift"
       style={{ transform: `translateX(${x}px) rotate(${x / 22}deg)`, transition: st.current.drag ? 'none' : 'transform .3s cubic-bezier(.2,.8,.2,1)', touchAction: 'pan-y' }}
     >
-      <span className="pointer-events-none absolute right-6 top-24 z-10 rotate-12 rounded-xl border-4 border-rose-400 px-3 py-1 text-2xl font-extrabold tracking-widest text-rose-400" style={{ opacity: Math.max(0, -dx / 100) }}>PASS</span>
-      <span className="pointer-events-none absolute left-6 top-24 z-10 -rotate-12 rounded-xl border-4 border-emerald-400 px-3 py-1 text-2xl font-extrabold tracking-widest text-emerald-400" style={{ opacity: Math.max(0, dx / 100) }}>CHALLENGE</span>
+      <span className="pointer-events-none absolute right-6 top-24 z-10 rotate-12 rounded-xl border-4 border-wrong/40 px-3 py-1 text-2xl font-bold tracking-widest text-wrong" style={{ opacity: Math.max(0, -dx / 100) }}>PASS</span>
+      <span className="pointer-events-none absolute left-6 top-24 z-10 -rotate-12 rounded-xl border-4 border-right px-3 py-1 text-2xl font-bold tracking-widest text-right" style={{ opacity: Math.max(0, dx / 100) }}>CHALLENGE</span>
       <div className="scroll-none h-full overflow-y-auto">
         <ProfileView p={p} heroClass="h-[62dvh] max-h-[520px] min-h-[340px]" />
       </div>

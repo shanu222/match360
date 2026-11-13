@@ -47,10 +47,10 @@ export function SafetyModal({ open, onClose, userId, name }: { open: boolean; on
 
   return (
     <Modal open={open} onClose={onClose} title="Safety">
-      <p className="text-sm text-ink-400">Reports are anonymous. {name} won’t be told who reported them.</p>
+      <p className="text-sm text-slate">Reports are anonymous. {name} won’t be told who reported them.</p>
       <div className="mt-4 space-y-2">
         {REASONS.map((r) => (
-          <label key={r} className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-3.5 text-[15px] font-semibold transition ${reason === r ? 'border-coral/60 bg-coral/10' : 'border-ink-700 bg-ink-850 hover:border-ink-600'}`}>
+          <label key={r} className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-3.5 text-[15px] font-semibold transition ${reason === r ? 'border-cobalt/40 bg-cobalt-soft' : 'border-rule bg-card border-rule'}`}>
             <input type="radio" name="reason" className="accent-[#ff5f6d]" checked={reason === r} onChange={() => setReason(r)} />
             {r}
           </label>

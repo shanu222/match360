@@ -18,11 +18,11 @@ export default function Challenges() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="text-3xl font-extrabold tracking-tight">Challenges</h1>
-      <p className="mt-1 text-ink-400">Every connection here was earned with a score.</p>
-      <div className="mt-6 grid grid-cols-2 rounded-2xl border border-ink-700 bg-ink-850 p-1">
+      <h1 className="text-3xl font-bold tracking-tight">Challenges</h1>
+      <p className="mt-1 text-slate">Every connection here was earned with a score.</p>
+      <div className="mt-6 grid grid-cols-2 rounded-2xl border border-rule bg-card p-1">
         {(['received', 'sent'] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={clsx('rounded-xl py-2.5 text-sm font-bold capitalize transition', tab === t ? 'bg-brand text-white' : 'text-ink-400 hover:text-white')}>
+          <button key={t} onClick={() => setTab(t)} className={clsx('rounded-xl py-2.5 text-sm font-bold capitalize transition', tab === t ? 'bg-cobalt text-white' : 'text-slate hover:text-ink')}>
             {t}
             {t === 'received' && pending ? ` (${pending})` : t === 'sent' && q.data ? ` (${q.data.sent.length})` : ''}
           </button>
@@ -76,14 +76,14 @@ function Received({ r }: { r: RequestItem }) {
             <span className="truncate">{u.firstName}{u.age ? `, ${u.age}` : ''}</span>
             {u.verified && <Verified size={16} />}
           </div>
-          <div className="truncate text-sm text-ink-400">{u.job} · {u.city}</div>
+          <div className="truncate text-sm text-slate">{u.job}, {u.city}</div>
         </div>
-        <span className={clsx('rounded-full px-3 py-1.5 text-sm font-extrabold', scoreTone(r.senderScore))}>⚡ {r.senderScore}%</span>
+        <span className={clsx('rounded-full px-3 py-1.5 text-sm font-bold', scoreTone(r.senderScore))}>{r.senderScore}%</span>
       </div>
-      <p className="mt-3 text-sm text-ink-400">
-        Scored <b className="text-white">{r.senderScore}%</b> on your challenge {r.senderScore >= bar ? `— above your ${bar}% bar ✅` : `— below your ${bar}% bar`} · {timeAgo(r.createdAt)}
+      <p className="mt-3 text-sm text-slate">
+        Scored <b className="text-ink">{r.senderScore}%</b> on your challenge{r.senderScore >= bar ? `, above your ${bar}% bar.` : `, below your ${bar}% bar.`}{' '}<span className="whitespace-nowrap">{timeAgo(r.createdAt) === 'just now' ? 'Just now' : `${timeAgo(r.createdAt)} ago`}</span>
       </p>
-      {r.note && <p className="mt-3 rounded-2xl bg-ink-800 px-4 py-3 text-[15px] leading-relaxed text-ink-300">“{r.note}”</p>}
+      {r.note && <p className="mt-3 rounded-2xl bg-paper px-4 py-3 text-[15px] leading-relaxed text-slate">“{r.note}”</p>}
       {r.status === 'pending' ? (
         <div className="mt-4 grid grid-cols-[1fr_1.6fr] gap-2.5">
           <button className="btn btn-ghost py-3" onClick={() => setConfirm(true)}>Decline</button>
@@ -91,15 +91,15 @@ function Received({ r }: { r: RequestItem }) {
         </div>
       ) : r.status === 'accepted' ? (
         <div className="mt-4 flex items-center justify-between">
-          <span className="text-sm font-semibold text-emerald-300">Connected · you scored {r.receiverScore}%</span>
+          <span className="text-sm font-semibold text-right">Connected. You scored {r.receiverScore}%.</span>
           <Link to="/chats" className="btn btn-ghost px-4 py-2 text-sm"><MessageCircle size={16} /> Chats</Link>
         </div>
       ) : (
-        <div className="mt-4 text-sm font-semibold capitalize text-ink-400">{r.status}</div>
+        <div className="mt-4 text-sm font-semibold capitalize text-slate">{r.status}</div>
       )}
       {intro && <ChallengeIntro open onClose={() => setIntro(false)} user={u} purpose="accept" theirScore={r.senderScore} />}
       <Modal open={confirm} onClose={() => setConfirm(false)} title={`Decline ${u.firstName}?`}>
-        <p className="text-ink-300">They won’t be notified directly — their request will simply show as not accepted.</p>
+        <p className="text-slate">They won’t get a notification. Their request will show as not accepted.</p>
         <div className="mt-6 grid grid-cols-2 gap-3">
           <button className="btn btn-ghost" onClick={() => setConfirm(false)}>Cancel</button>
           <button className="btn btn-danger" disabled={decline.isPending} onClick={() => decline.mutate()}>{decline.isPending ? <Spinner size={18} /> : 'Decline'}</button>
@@ -123,7 +123,7 @@ function Sent({ r }: { r: RequestItem }) {
     r.status === 'pending'
       ? `Waiting for ${u.firstName} to take your quiz`
       : r.status === 'accepted'
-        ? `${u.firstName} scored ${r.receiverScore}% on you — connected!`
+        ? `${u.firstName} scored ${r.receiverScore}% on you. You’re connected.`
         : r.status === 'declined'
           ? 'Not this time'
           : r.status === 'cancelled'
@@ -134,14 +134,14 @@ function Sent({ r }: { r: RequestItem }) {
       <button onClick={() => nav(`/u/${u.id}`)} className="shrink-0"><Avatar src={u.photos[0]} name={u.name} className="h-14 w-14" /></button>
       <div className="min-w-0 flex-1">
         <div className="truncate font-bold">{u.name}</div>
-        <div className="truncate text-sm text-ink-400">{label}</div>
+        <div className="truncate text-sm text-slate">{label}</div>
         {r.status === 'pending' && (
-          <button onClick={() => cancel.mutate()} disabled={cancel.isPending} className="mt-1 text-xs font-semibold text-ink-400 hover:text-rose-300">Cancel request</button>
+          <button onClick={() => cancel.mutate()} disabled={cancel.isPending} className="mt-1 text-xs font-semibold text-slate hover:text-wrong">Cancel request</button>
         )}
       </div>
       <div className="flex flex-col items-end gap-1.5">
-        <span className={clsx('rounded-full px-2.5 py-1 text-xs font-extrabold', scoreTone(r.senderScore))}>{r.senderScore}%</span>
-        <span className={clsx('rounded-full px-2.5 py-1 text-[11px] font-bold capitalize', r.status === 'accepted' ? 'bg-emerald-500/15 text-emerald-300' : r.status === 'pending' ? 'bg-amber-400/15 text-amber-200' : 'bg-ink-700 text-ink-400')}>{r.status}</span>
+        <span className={clsx('rounded-full px-2.5 py-1 text-xs font-bold', scoreTone(r.senderScore))}>{r.senderScore}%</span>
+        <span className={clsx('rounded-full px-2.5 py-1 text-[11px] font-bold capitalize', r.status === 'accepted' ? 'bg-right/10 text-right' : r.status === 'pending' ? 'bg-marker/40 text-[#7A5600]' : 'bg-rule text-slate')}>{r.status}</span>
       </div>
     </div>
   );

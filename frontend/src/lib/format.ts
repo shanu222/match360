@@ -18,5 +18,5 @@ export const dayLabel = (iso: string) => {
   return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: d.getFullYear() === t.getFullYear() ? undefined : 'numeric' });
 };
 export const scoreTone = (s: number | null | undefined) =>
-  s == null ? 'bg-ink-700 text-ink-300' : s >= 75 ? 'bg-emerald-500/15 text-emerald-300' : s >= 50 ? 'bg-amber-400/15 text-amber-200' : 'bg-rose-500/15 text-rose-300';
+  s == null ? 'bg-rule text-slate' : s >= 75 ? 'bg-right/10 text-right' : s >= 50 ? 'bg-marker/50 text-ink' : 'bg-wrong/10 text-wrong';
 export const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);

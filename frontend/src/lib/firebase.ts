@@ -2,6 +2,13 @@ import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, type Auth } from 'firebase/auth';
 
 const env = import.meta.env;
+
+/**
+ * In production the Firebase auth handler is proxied through our own domain (see vercel.json),
+ * so sign-in works with third-party-storage restrictions (Safari, Chrome, mobile) and redirects.
+ */
+const isLocal = typeof window !== 'undefined' && /^(localhost|127\.|192\.168\.)/.test(window.location.hostname);
+const authDomain = import.meta.env.PROD && !isLocal ? window.location.host : env.VITE_FIREBASE_AUTH_DOMAIN;
 export const firebaseConfigured = Boolean(env.VITE_FIREBASE_API_KEY && env.VITE_FIREBASE_AUTH_DOMAIN && env.VITE_FIREBASE_PROJECT_ID);
 
 let app: FirebaseApp | null = null;
@@ -9,7 +16,7 @@ let auth: Auth | null = null;
 if (firebaseConfigured) {
   app = initializeApp({
     apiKey: env.VITE_FIREBASE_API_KEY,
-    authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
+    authDomain,
     projectId: env.VITE_FIREBASE_PROJECT_ID,
     appId: env.VITE_FIREBASE_APP_ID,
     storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
@@ -42,3 +49,7 @@ export function friendlyAuthError(code: string): string {
   };
   return m[code] || 'Something went wrong. Please try again.';
 }
+
+/** Phones and tablets get the redirect flow — popups are unreliable there. */
+export const preferRedirect = () =>
+  typeof window !== 'undefined' && (window.matchMedia?.('(pointer: coarse)').matches || window.innerWidth < 768);

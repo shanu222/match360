@@ -17,7 +17,7 @@ export function Realtime({ myId }: { myId: string }) {
         qc.invalidateQueries({ queryKey: ['notifications'] });
         qc.invalidateQueries({ queryKey: ['counts'] });
         const to = n.type === 'accepted' && n.ref_id ? `/chats/${n.ref_id}` : '/challenges';
-        toast({ title: n.type === 'accepted' ? 'New connection 🎉' : 'New challenge request ⚡', body: n.body, to });
+        toast({ title: n.type === 'accepted' ? 'New connection' : 'New challenge request', body: n.body, to });
       }),
       onSocket('request:new', () => {
         qc.invalidateQueries({ queryKey: ['requests'] });
