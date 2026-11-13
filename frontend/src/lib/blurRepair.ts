@@ -1,6 +1,6 @@
 import { api } from './api';
 import { makeBlurred } from './image';
-import { uploadBlob } from './upload';
+import { fetchOwnPhoto, uploadBlob } from './upload';
 import type { Me } from './types';
 
 const needsCopy = (u: Pick<Me, 'photos' | 'photosBlur'>, i: number) => !u.photosBlur?.[i] || u.photosBlur[i] === u.photos[i];
@@ -12,9 +12,7 @@ export async function ensureBlurCopies(u: Pick<Me, 'photos' | 'photosBlur'>): Pr
   const pairs: { url: string; blurUrl: string }[] = [];
   for (const url of missing) {
     try {
-      const res = await fetch(url, { mode: 'cors', cache: 'no-store' });
-      if (!res.ok) continue;
-      const blurred = await makeBlurred(await res.blob());
+      const blurred = await makeBlurred(await fetchOwnPhoto(url));
       const up = await uploadBlob('photo', blurred);
       if (up.publicUrl) pairs.push({ url, blurUrl: up.publicUrl });
     } catch {

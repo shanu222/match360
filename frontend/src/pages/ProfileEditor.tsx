@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import { ArrowLeft, EyeOff, ImagePlus, Loader2, Star, Trash2 } from 'lucide-react';
 import { api, errMsg } from '../lib/api';
 import { makeBlurred, prepareImage } from '../lib/image';
-import { uploadBlob } from '../lib/upload';
+import { fetchOwnPhoto, uploadBlob } from '../lib/upload';
 import type { Me, MeResponse, Meta, Prompt } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/Toast';
@@ -90,8 +90,7 @@ function Editor({ mode, user, meta, defaultName, onSignOut }: { mode: 'onboardin
     (async () => {
       for (const p of missing) {
         try {
-          const res = await fetch(p.url, { mode: 'cors', cache: 'no-store' });
-          const up = await uploadBlob('photo', await makeBlurred(await res.blob()));
+          const up = await uploadBlob('photo', await makeBlurred(await fetchOwnPhoto(p.url)));
           if (!cancelled && up.publicUrl) setF((x) => ({ ...x, photos: x.photos.map((y) => (y.url === p.url ? { ...y, blurUrl: up.publicUrl! } : y)) }));
         } catch {
           /* leave it; the server never shows a clear photo in place of a blurred one */

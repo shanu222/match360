@@ -6,7 +6,8 @@ import {
   CHILDREN, DRINKING, EDUCATION_LEVELS, GENDERS, INDUSTRIES, INTENTS, INTERESTED_IN, INTERESTS, MARITAL, PROMPT_QUESTIONS, RELIGIONS, SMOKING,
 } from '../catalog.js';
 import { ageFrom, isComplete, isPremium, missingFields, privateProfile, publicProfile, type UserRow } from '../profiles.js';
-import { ALLOWED_TYPES, MAX_UPLOAD_BYTES, deletePhotos, deletePrivate, isOwnPhotoUrl, isOwnPrivateKey, signPhotoUpload, signPrivateUpload } from '../storage.js';
+import { ALLOWED_TYPES, MAX_UPLOAD_BYTES, deletePhotos, deletePrivate, isOwnPhotoUrl, isOwnPrivateKey, putPhoto, putPrivate, signPhotoUpload, signPrivateUpload, sniffImage } from '../storage.js';
+import express from 'express';
 import { r2Enabled } from '../config.js';
 import { actionLink, clearStatusCache, deleteFirebaseUser, forgetUser } from '../auth.js';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
@@ -280,6 +281,42 @@ account.post('/uploads/sign', async (req, res) => {
   if (s.size > MAX_UPLOAD_BYTES) throw bad('Image must be under 5 MB', 'validation');
   if (s.kind === 'photo') return res.json(await signPhotoUpload(req.user.uid, s.contentType, s.size));
   res.json(await signPrivateUpload(req.user.uid, s.kind, s.contentType, s.size));
+});
+
+/** Uploads go through the server, so browsers never talk to R2 directly (no bucket CORS needed). */
+const uploadLimiter = rateLimit({ windowMs: 60 * 60_000, limit: 80, keyGenerator: (req: any) => req.user?.uid || ipKeyGenerator(req.ip || ''), standardHeaders: true, legacyHeaders: false, message: { error: 'Too many uploads. Try again later.' } });
+account.post(
+  '/uploads/file',
+  uploadLimiter,
+  express.raw({ type: ['image/jpeg', 'image/png', 'image/webp', 'application/octet-stream'], limit: MAX_UPLOAD_BYTES + 1024 }),
+  async (req, res) => {
+    if (!r2Enabled()) throw new HttpError(503, 'Uploads are not configured yet', 'uploads_disabled');
+    const kind = String(req.query.kind || 'photo');
+    if (!['photo', 'id_doc', 'selfie', 'proof'].includes(kind)) throw bad('Unknown upload type', 'validation');
+    const body = req.body;
+    if (!Buffer.isBuffer(body) || !body.length) throw bad('No image received. Please choose the file again.', 'validation');
+    if (body.length > MAX_UPLOAD_BYTES) throw bad('Image must be under 5 MB', 'validation');
+    const type = sniffImage(body);
+    if (!type) throw bad('Only JPEG, PNG or WebP images are allowed', 'validation');
+    try {
+      if (kind === 'photo') return res.json(await putPhoto(req.user.uid, body, type));
+      return res.json(await putPrivate(req.user.uid, kind as 'id_doc' | 'selfie' | 'proof', body, type));
+    } catch (e: any) {
+      console.error('[upload] failed', e?.name, e?.message);
+      throw new HttpError(502, 'Upload failed on our side. Please try again in a minute.', 'upload_failed');
+    }
+  },
+);
+
+/** Streams one of the member's own photos back to them (used to make blurred copies without needing R2 CORS). */
+account.get('/uploads/mine', async (req, res) => {
+  const url = String(req.query.url || '');
+  if (!isOwnPhotoUrl(req.user.uid, url)) throw notFound();
+  const r = await fetch(url);
+  if (!r.ok) throw notFound();
+  res.set('Content-Type', r.headers.get('content-type') || 'image/jpeg');
+  res.set('Cache-Control', 'private, max-age=300');
+  res.send(Buffer.from(await r.arrayBuffer()));
 });
 
 /* ---------- discover ---------- */

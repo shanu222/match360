@@ -6,7 +6,7 @@ import { config } from '../config.js';
 import { q, tx } from '../db.js';
 import { HttpError, bad, notFound, parse } from '../http.js';
 import { encrypt, getSetting, mask, serverSecret, setSetting, DEFAULTS, aiKey, type Provider } from '../settings.js';
-import { signPrivateGet, deletePhotos, deletePrivate } from '../storage.js';
+import { signPrivateGet, deletePhotos, deletePrivate, storageHealth } from '../storage.js';
 import { emails } from '../email.js';
 import { clearStatusCache, deleteFirebaseUser, forgetUser } from '../auth.js';
 import { isUuid, param } from './common.js';
@@ -360,6 +360,11 @@ admin.post('/ai/test', async (req, res) => {
   const started = Date.now();
   const r = await generateAIQuiz(facts, 5, age);
   res.json({ provider: r.provider, errors: r.errors, ms: Date.now() - started, questions: r.questions.map((x) => ({ q: x.q, options: x.options, answer: x.options[x.answer] })), profile: u ? u.name : 'Sample profile' });
+});
+
+admin.get('/health', async (_req, res) => {
+  const [storage, emailOk] = await Promise.all([storageHealth(), Promise.resolve(Boolean(config.resend.apiKey))]);
+  res.json({ storage, email: emailOk ? 'configured' : 'RESEND_API_KEY missing', firebase: config.firebase.projectId ? 'configured' : 'missing', ai: (await getSetting('ai')).enabled ? 'enabled' : 'disabled' });
 });
 
 admin.get('/audit', async (_req, res) => {

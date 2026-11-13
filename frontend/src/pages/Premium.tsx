@@ -42,13 +42,24 @@ export default function PremiumPage() {
     setBusy(true);
     try {
       let proofKey: string | undefined;
-      if (proof) proofKey = (await uploadBlob('proof', await prepareImage(proof, 1600, 0.85))).key;
+      let proofFailed = false;
+      if (proof) {
+        try {
+          proofKey = (await uploadBlob('proof', await prepareImage(proof, 1600, 0.85))).key;
+        } catch {
+          proofFailed = true; // the transaction ID is enough to verify; don't block the payment
+        }
+      }
       await api.post('/payments', { planId: plan.id, methodId: method.id, reference: reference.trim(), sender: sender.trim(), proofKey });
       setReference('');
       setSender('');
       setProof(null);
       qc.invalidateQueries({ queryKey: ['payments'] });
-      toast({ title: 'Payment submitted', body: 'We’ll activate Premium as soon as we confirm it, usually within a few hours.', tone: 'success' });
+      toast({
+        title: 'Payment submitted',
+        body: proofFailed ? 'The screenshot couldn’t be attached, but your transaction ID was sent. We’ll confirm it within a few hours.' : 'We’ll activate Premium as soon as we confirm it, usually within a few hours.',
+        tone: 'success',
+      });
     } catch (e) {
       setErr(errMsg(e));
     } finally {

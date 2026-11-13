@@ -183,6 +183,7 @@ function Overview({ base }: { base: string }) {
           </button>
         ))}
       </div>
+      <SystemStatus />
       <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {tiles.map(([l, v, sub]) => (
           <div key={l as string} className="rounded-xl border border-rule bg-card p-4">
@@ -213,6 +214,36 @@ function Overview({ base }: { base: string }) {
         </div>
       </div>
     </>
+  );
+}
+
+function SystemStatus() {
+  const q = useQuery({ queryKey: ['admin', 'health'], queryFn: () => adminApi.get<any>('/health'), staleTime: 5 * 60_000 });
+  if (!q.data) return null;
+  const rows: [string, string][] = [
+    ['Photo storage', q.data.storage.publicBucket],
+    ['Private storage (IDs, receipts)', q.data.storage.privateBucket],
+    ['Email', q.data.email],
+    ['Sign-in', q.data.firebase],
+    ['AI questions', q.data.ai],
+  ];
+  const good = (v: string) => /working|configured|enabled|using main/i.test(v);
+  return (
+    <div className="mt-6 rounded-xl border border-rule bg-card p-4">
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold">System status</h2>
+        <button className="text-sm font-medium text-cobalt hover:underline" onClick={() => q.refetch()}>{q.isFetching ? 'Checking…' : 'Check again'}</button>
+      </div>
+      <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+        {rows.map(([k, v]) => (
+          <div key={k} className="flex items-start gap-2">
+            <span className={clsx('mt-1.5 h-2 w-2 shrink-0 rounded-full', good(v) ? 'bg-right' : 'bg-wrong')} />
+            <dt className="text-slate">{k}:</dt>
+            <dd className="break-all">{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }
 
