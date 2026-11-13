@@ -28,12 +28,17 @@ async function getNativePosition(): Promise<{ lat: number; lng: number }> {
     throw new Error('Location is turned off on this phone. Turn it on, or choose your city manually.');
   }
   if (perm.coarseLocation !== 'granted') throw denied;
-  try {
-    const p = await Geolocation.getCurrentPosition({ enableHighAccuracy: false, timeout: 15_000, maximumAge: 10 * 60_000 });
-    return { lat: p.coords.latitude, lng: p.coords.longitude };
-  } catch {
-    throw new Error('We couldn’t get your location. Check that location is turned on, or choose your city manually.');
+  // Network (Wi-Fi/cell) location first. Some phones have none, so fall back to GPS;
+  // with only the approximate permission Android still returns a coarsened position.
+  for (const enableHighAccuracy of [false, true]) {
+    try {
+      const p = await Geolocation.getCurrentPosition({ enableHighAccuracy, timeout: enableHighAccuracy ? 20_000 : 8_000, maximumAge: 10 * 60_000 });
+      return { lat: p.coords.latitude, lng: p.coords.longitude };
+    } catch {
+      /* try the next source */
+    }
   }
+  throw new Error('We couldn’t get your location. Check that location is turned on, or choose your city manually.');
 }
 
 export function getPosition(): Promise<{ lat: number; lng: number }> {

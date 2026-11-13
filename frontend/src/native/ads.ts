@@ -19,9 +19,18 @@ const setAdHeight = (px: number) => document.documentElement.style.setProperty('
 
 async function gatherConsent() {
   // Google UMP: required before requesting ads for EEA/UK users; a no-op elsewhere.
-  let info = await AdMob.requestConsentInfo();
-  if (!info.canRequestAds && info.isConsentFormAvailable) info = await AdMob.showConsentForm();
-  canRequestAds = info.canRequestAds;
+  try {
+    let info = await AdMob.requestConsentInfo();
+    if (!info.canRequestAds && info.isConsentFormAvailable) info = await AdMob.showConsentForm();
+    canRequestAds = info.canRequestAds;
+  } catch (e) {
+    // No consent message has been created for this app in AdMob (Privacy & messaging), so there is
+    // nothing to ask. Ads can still be requested; any other failure (e.g. network) keeps ads off.
+    const msg = String((e as { message?: unknown })?.message ?? e);
+    if (!/misconfigur|no form\(s\) configured/i.test(msg)) throw e;
+    console.warn('[ads] no consent message configured in AdMob; continuing without one');
+    canRequestAds = true;
+  }
 }
 
 /** Initialises the SDK and consent once. Resolves to whether ads may be requested. */
