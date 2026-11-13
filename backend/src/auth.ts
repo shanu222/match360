@@ -26,8 +26,14 @@ export function initFirebase() {
     console.warn('[auth] Firebase Admin credentials missing — authenticated routes will return 503');
     return;
   }
-  if (!getApps().length) initializeApp({ credential: cert({ projectId, clientEmail, privateKey }) });
-  firebaseReady = true;
+  try {
+    if (!getApps().length) initializeApp({ credential: cert({ projectId, clientEmail, privateKey }) });
+    firebaseReady = true;
+    console.log('[auth] Firebase Admin ready');
+  } catch (e: any) {
+    // Never crash the server on bad credentials — log clearly and keep serving (auth routes return 503).
+    console.error('[auth] Invalid Firebase Admin credentials — check FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY:', e?.message);
+  }
 }
 
 export async function verifyToken(token: string): Promise<AuthUser> {
