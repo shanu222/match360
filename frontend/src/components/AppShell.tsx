@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { Bell, Compass, MessageCircle, Settings, UserRound, Zap } from 'lucide-react';
+import { Bell, Compass, Crown, MessageCircle, Settings, UserRound, Zap } from 'lucide-react';
 import { api } from '../lib/api';
 import { timeAgo } from '../lib/format';
 import type { Counts, Notification } from '../lib/types';
@@ -65,6 +65,9 @@ export function AppShell() {
           </button>
         </nav>
         <div className="mt-auto">
+          <NavLink to="/premium" className="mb-1 flex items-center gap-3.5 rounded-xl px-4 py-3 text-[15px] font-medium text-slate hover:bg-paper hover:text-ink">
+            <Crown size={21} /> Premium
+          </NavLink>
           <NavLink to="/settings" className="mb-3 flex items-center gap-3.5 rounded-2xl px-4 py-3 text-[15px] font-semibold text-slate hover:bg-paper hover:text-ink">
             <Settings size={21} /> Settings
           </NavLink>

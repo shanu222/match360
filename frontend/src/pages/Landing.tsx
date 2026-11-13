@@ -151,9 +151,11 @@ export default function Landing() {
       <footer className="border-t border-rule">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-8 text-sm text-slate sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <Logo size={24} />
-          <div className="flex gap-6">
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
             <Link to="/privacy" className="hover:text-ink">Privacy</Link>
             <Link to="/terms" className="hover:text-ink">Terms</Link>
+            <Link to="/guidelines" className="hover:text-ink">Guidelines</Link>
+            <Link to="/safety" className="hover:text-ink">Safety</Link>
             <a href="mailto:shahnawaz@sustainablesolution360.com" className="hover:text-ink">Contact</a>
           </div>
           <div>© {new Date().getFullYear()} Sustainable Solution 360</div>

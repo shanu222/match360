@@ -89,6 +89,27 @@ Users can switch emails off in Settings.
 3. Deploy. `vercel.json` handles page routing (so refreshing any page works), asset caching and security headers.
 4. Add the Vercel URL to Railway `FRONTEND_ORIGIN`, to the Firebase authorised domains, and to the R2 CORS policy.
 
+## Admin panel
+
+The admin panel lives at a secret address on your site, for example `https://your-app.vercel.app/ops-7k2m9q4x`. It is never linked from the app.
+
+- **Frontend (Vercel):** set `VITE_ADMIN_PATH` to a hard-to-guess path (at least 6 characters).
+- **Backend (Railway):** set `ADMIN_EMAIL`, `ADMIN_PASSWORD` and `ADMIN_SECRET` (a long random string).
+
+Security: the admin API checks credentials on the server, uses signed sessions that expire after 8 hours, allows 6 login attempts per 15 minutes per IP, locks sign-in for 30 minutes after repeated failures, and records every action in the activity log. The admin password never appears in the code.
+
+From the panel you can review reports, approve identity verifications (with private, short-lived document links), confirm Easypaisa, JazzCash, bank and card payments, suspend, ban or delete members, grant Premium, and change plans, prices, payment details, ad settings, daily limits and AI providers and keys.
+
+## AI challenge questions
+
+Questions are written from the member's full profile, differently each time. Providers are tried in the order set in the admin panel (OpenAI, Gemini, Anthropic, Groq, or any OpenAI-compatible API). Each answer is checked against the profile and any question that can't be verified is dropped. If no provider works, the built-in generator is used, so challenges never stop. Keys can come from Railway variables (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `GROQ_API_KEY`) or be saved, encrypted, from the admin panel.
+
+## Payments and ads
+
+- Easypaisa, JazzCash, bank transfer and a card payment link are configured in the admin panel. Members submit the transaction ID (and optionally a receipt); you approve it in the admin panel and Premium is activated automatically.
+- Ads: add your AdSense publisher ID and ad unit IDs in the admin panel. Premium members never see ads.
+- Google Play rule: if you publish an Android app on Google Play, Premium sold inside that app must use Google Play Billing. The payment methods above are for the website.
+
 ## Local development
 
 ```bash

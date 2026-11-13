@@ -2,31 +2,54 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { BadgeCheck, Compass, Info, MapPin, RotateCcw, X, Zap } from 'lucide-react';
+import { BadgeCheck, Compass, Info, LocateFixed, RotateCcw, SlidersHorizontal, X, Zap } from 'lucide-react';
 import { api, errMsg } from '../lib/api';
 import type { Profile } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
 import { useMeta } from './ProfileEditor';
 import { ProfileView } from '../components/ProfileView';
 import { ChallengeIntro } from '../components/ChallengeIntro';
-import { Avatar, EmptyState, ErrorState, Spinner } from '../components/ui';
+import { Avatar, EmptyState, ErrorState, Modal, Spinner } from '../components/ui';
+import { Combobox } from '../components/LocationFields';
+import { AdSlot } from '../components/AdSlot';
+import { flagOf, getPosition, useCities, useCountries } from '../lib/geo';
+import { useToast } from '../context/Toast';
+
+function CityPicker({ country, value, onChange }: { country: string; value: string; onChange: (v: string) => void }) {
+  const [term, setTerm] = useState('');
+  const cities = useCities(country, term);
+  const opts = [{ value: '', label: 'Any city' }, ...(cities.data?.cities || []).map((c) => ({ value: c, label: c }))];
+  return <Combobox value={value} onChange={onChange} options={opts} onSearch={setTerm} loading={cities.isFetching} placeholder="Any city" />;
+}
+
+const DISTANCES = [10, 25, 50, 100, 250, 500];
 
 export default function Discover() {
-  const { me } = useAuth();
+  const { me, refetchMe } = useAuth();
   const meta = useMeta();
+  const countries = useCountries();
   const qc = useQueryClient();
   const nav = useNavigate();
+  const toast = useToast();
   const [intent, setIntent] = useState('All');
-  const [nearby, setNearby] = useState(false);
+  const [country, setCountry] = useState(me?.user.country || '');
+  const [city, setCity] = useState('');
+  const [km, setKm] = useState(0);
   const [verified, setVerified] = useState(false);
   const [gone, setGone] = useState<string[]>([]);
   const [intro, setIntro] = useState<Profile | null>(null);
+  const [filters, setFilters] = useState(false);
+  const [locating, setLocating] = useState(false);
 
   const params = new URLSearchParams();
   if (intent !== 'All') params.set('intent', intent);
-  if (nearby && me) params.set('city', me.user.city);
+  if (km) params.set('km', String(km));
+  else {
+    if (country) params.set('country', country);
+    if (country && city) params.set('city', city);
+  }
   if (verified) params.set('verified', '1');
-  const key = ['discover', intent, nearby, verified];
+  const key = ['discover', intent, country, city, km, verified];
   const q = useQuery({ queryKey: key, queryFn: () => api.get<{ profiles: Profile[] }>(`/discover?${params}`), staleTime: 60_000 });
 
   const list = (q.data?.profiles || []).filter((p) => !gone.includes(p.id));
@@ -46,16 +69,64 @@ export default function Discover() {
     pass.mutate(id);
   };
 
+  const nearMe = async () => {
+    if (km) return setKm(0);
+    if (!me?.user.hasLocation) {
+      setLocating(true);
+      try {
+        const pos = await getPosition();
+        await api.post('/me/location', pos);
+        refetchMe();
+      } catch (e) {
+        toast({ title: 'Location not shared', body: errMsg(e), tone: 'error' });
+        return;
+      } finally {
+        setLocating(false);
+      }
+    }
+    setKm(50);
+  };
+  const countryLabel = km ? `Within ${km} km` : country ? `${flagOf(countries.data, country)} ${countries.data?.find((c) => c.code === country)?.name || country}${city ? `, ${city}` : ''}` : 'Anywhere';
+
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,460px)_1fr]">
       <div className="min-w-0">
         <div className="scroll-none -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          <button onClick={() => setNearby(!nearby)} className={clsx('chip', nearby && 'chip-on')}><MapPin size={14} />Near me</button>
+          <button onClick={() => setFilters(true)} className="chip"><SlidersHorizontal size={14} />{countryLabel}</button>
+          <button onClick={nearMe} disabled={locating} className={clsx('chip', km > 0 && 'chip-on')}>{locating ? <Spinner size={14} /> : <LocateFixed size={14} />}Near me</button>
           <button onClick={() => setVerified(!verified)} className={clsx('chip', verified && 'chip-on')}><BadgeCheck size={14} />Verified</button>
           {['All', ...(meta.data?.intents || [])].map((i) => (
             <button key={i} onClick={() => setIntent(i)} className={clsx('chip', intent === i && 'chip-on')}>{i}</button>
           ))}
         </div>
+
+        <Modal open={filters} onClose={() => setFilters(false)} title="Filters">
+          <label className="label">Where</label>
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => setKm(0)} className={clsx('chip justify-center py-2', !km && 'chip-on')}>Country or city</button>
+            <button onClick={() => (me?.user.hasLocation ? setKm(km || 50) : nearMe())} className={clsx('chip justify-center py-2', km > 0 && 'chip-on')}>Distance from me</button>
+          </div>
+          {km > 0 ? (
+            <>
+              <label className="label">Maximum distance</label>
+              <div className="flex flex-wrap gap-2">
+                {DISTANCES.map((d) => <button key={d} onClick={() => setKm(d)} className={clsx('chip', km === d && 'chip-on')}>{d} km</button>)}
+              </div>
+            </>
+          ) : (
+            <>
+              <label className="label">Country</label>
+              <Combobox value={country} onChange={(v) => { setCountry(v); setCity(''); }} options={[{ value: '', label: 'Anywhere' }, ...(countries.data || []).map((c) => ({ value: c.code, label: `${c.flag} ${c.name}` }))]} placeholder="Anywhere" />
+              {country && (
+                <>
+                  <label className="label">City <span className="font-normal text-slate">(optional)</span></label>
+                  <CityPicker country={country} value={city} onChange={setCity} />
+                </>
+              )}
+            </>
+          )}
+          <button className="btn btn-primary mt-6 w-full" onClick={() => setFilters(false)}>Show people</button>
+        </Modal>
 
         {q.isLoading ? (
           <div className="card flex h-[60dvh] items-center justify-center"><Spinner size={28} /></div>
@@ -65,7 +136,7 @@ export default function Discover() {
           <EmptyState
             icon={<Compass size={34} />}
             title="You’re all caught up"
-            text="New people join every day. Try a different filter, or take another look at profiles you passed."
+            text="New people join every day. Try a wider area or a different filter, or look again at profiles you passed."
             action={
               <button className="btn btn-ghost" onClick={() => reset.mutate()} disabled={reset.isPending}>
                 <RotateCcw size={17} /> Show passed profiles
@@ -99,12 +170,13 @@ export default function Discover() {
 
       <aside className="hidden lg:block">
         <div className="sticky top-10 space-y-4">
+          <AdSlot slot="slotDiscover" />
           <div className="card p-6">
             <h3 className="text-lg font-bold">How to stand out</h3>
             <ol className="mt-4 space-y-3 text-[15px] leading-relaxed text-slate">
-              <li><b className="text-ink">1.</b> Read the whole profile. The written answers make the hardest questions.</li>
+              <li><b className="text-ink">1.</b> Read the whole profile carefully. Questions can come from any part of it.</li>
               <li><b className="text-ink">2.</b> Take the challenge. Your score travels with your request.</li>
-              <li><b className="text-ink">3.</b> Add a personal note that references something specific.</li>
+              <li><b className="text-ink">3.</b> Add a note that mentions something specific about them.</li>
             </ol>
             <p className="mt-4 text-xs text-slate">Use the left arrow to pass and the right arrow to start a challenge.</p>
           </div>

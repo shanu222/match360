@@ -18,6 +18,10 @@ const MyProfile = lazy(() => import('./pages/MyProfile'));
 const PreviewSelf = lazy(() => import('./pages/MyProfile').then((m) => ({ default: m.PreviewSelf })));
 const SettingsPage = lazy(() => import('./pages/Settings'));
 const Legal = lazy(() => import('./pages/Legal'));
+const VerifyPage = lazy(() => import('./pages/Verify'));
+const PremiumPage = lazy(() => import('./pages/Premium'));
+const AdminApp = lazy(() => import('./admin/AdminApp'));
+const ADMIN_PATH = (import.meta.env.VITE_ADMIN_PATH || '').replace(/^\/+|\/+$/g, '');
 
 function Splash() {
   return (
@@ -69,6 +73,12 @@ export default function App() {
         <Route path="/reset" element={<Auth mode="reset" />} />
         <Route path="/privacy" element={<Legal kind="privacy" />} />
         <Route path="/terms" element={<Legal kind="terms" />} />
+        <Route path="/guidelines" element={<Legal kind="guidelines" />} />
+        <Route path="/safety" element={<Legal kind="safety" />} />
+        <Route path="/child-safety" element={<Legal kind="child-safety" />} />
+        <Route path="/refunds" element={<Legal kind="refunds" />} />
+        <Route path="/delete-account" element={<Legal kind="delete-account" />} />
+        {ADMIN_PATH.length >= 6 && <Route path={`/${ADMIN_PATH}/*`} element={<AdminApp base={`/${ADMIN_PATH}`} />} />}
         <Route path="/onboarding" element={<Private allowIncomplete><OnboardingGate /></Private>} />
         <Route path="/challenge/:id" element={<Private><Quiz /></Private>} />
         <Route element={<Private><AppShell /></Private>}>
@@ -81,6 +91,8 @@ export default function App() {
           <Route path="/me/edit" element={<ProfileEditor mode="edit" />} />
           <Route path="/me/preview" element={<PreviewSelf />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/verify" element={<VerifyPage />} />
+          <Route path="/premium" element={<PremiumPage />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

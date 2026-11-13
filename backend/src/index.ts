@@ -9,7 +9,8 @@ import { migrate, pool } from './db.js';
 import { initFirebase, requireAuth } from './auth.js';
 import { errorHandler } from './http.js';
 import { initRealtime } from './realtime.js';
-import { account, metaHandler } from './routes/account.js';
+import { account, citiesHandler, countriesHandler, metaHandler } from './routes/account.js';
+import { admin, adminEnabled } from './routes/admin.js';
 import { social } from './routes/social.js';
 
 const app = express();
@@ -41,6 +42,14 @@ app.use(
   rateLimit({ windowMs: 60_000, limit: 300, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many requests, slow down a little.' } }),
 );
 app.get('/api/meta', metaHandler);
+app.get('/api/geo/countries', countriesHandler);
+app.get('/api/geo/cities', citiesHandler);
+// Admin API — separate credentials, never linked from the app. Responds 404 when not configured.
+app.use('/api/admin', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  res.set('X-Robots-Tag', 'noindex');
+  next();
+}, admin);
 app.use('/api', requireAuth, account, social);
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found', code: 'not_found' }));
 app.use(errorHandler);
@@ -48,6 +57,7 @@ app.use(errorHandler);
 async function main() {
   if (!config.databaseUrl) throw new Error('DATABASE_URL is not set');
   initFirebase();
+  console.log(`[admin] ${adminEnabled() ? 'enabled' : 'disabled (set ADMIN_EMAIL and ADMIN_PASSWORD to enable)'}`);
   await migrate();
   const server = createServer(app);
   initRealtime(server);

@@ -55,6 +55,18 @@ export async function deleteFirebaseUser(uid: string) {
   await getAuth().deleteUser(uid).catch((e) => console.warn('[auth] deleteUser failed', e?.message));
 }
 
+const statusCache = new Map<string, { status: string; at: number }>();
+async function isSuspended(uid: string) {
+  const r = await q<{ status: string }>('SELECT status FROM users WHERE id=$1', [uid]);
+  const status = r.rows[0]?.status || 'active';
+  statusCache.set(uid, { status, at: Date.now() });
+  if (statusCache.size > 10000) statusCache.clear();
+  return status !== 'active';
+}
+export function clearStatusCache(uid: string) {
+  statusCache.delete(uid);
+}
+
 // Small cache so we don't write to the users table on every request.
 const seen = new Map<string, number>();
 
@@ -65,6 +77,10 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     if (!token) throw new HttpError(401, 'Please sign in', 'unauthenticated');
     const user = await verifyToken(token);
     req.user = user;
+    const blocked = statusCache.get(user.uid);
+    if (blocked && Date.now() - blocked.at < 60_000 ? blocked.status !== 'active' : await isSuspended(user.uid)) {
+      throw new HttpError(403, 'This account has been suspended. Contact support if you think this is a mistake.', 'suspended');
+    }
     const key = `${user.uid}|${user.email}|${user.emailVerified}`;
     const last = seen.get(key) || 0;
     if (Date.now() - last > 60_000) {

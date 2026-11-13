@@ -57,6 +57,8 @@ async function send(userId: string, subject: string, html: string, throttleKey?:
   }
 }
 
+const p = (t: string) => `<p>${t}</p>`;
+
 // All senders are fire-and-forget: callers never await failures into the request path.
 export const emails = {
   newRequest(toId: string, fromName: string, score: number) {
@@ -80,6 +82,39 @@ export const emails = {
         `<p><b>${esc(byName)}</b> scored <b>${theirScore}%</b> on your profile challenge. You can now message each other.</p>`,
         'Say hello',
         `/chats/${matchId}`,
+      ),
+    );
+  },
+  welcome(toId: string, name: string) {
+    void send(
+      toId,
+      'Welcome to Match360',
+      layout(`Welcome, ${name}`, p('Your profile is live. Browse people, read their profiles carefully, and take a challenge when someone stands out.') + p('Tip: verified profiles get more requests. You can verify your identity from Settings.'), 'Start exploring', '/discover'),
+    );
+  },
+  verification(toId: string, approved: boolean, note: string) {
+    void send(
+      toId,
+      approved ? 'Your profile is verified' : 'We couldn’t verify your profile',
+      layout(
+        approved ? 'You’re verified' : 'Verification needs another try',
+        approved ? p('Your identity was confirmed. A verified badge now shows on your profile.') : p('We couldn’t confirm your identity from the documents you sent.') + (note ? p(`Reason: ${esc(note)}`) : '') + p('You can submit new documents from Settings.'),
+        approved ? 'View my profile' : 'Try again',
+        approved ? '/me' : '/verify',
+      ),
+    );
+  },
+  payment(toId: string, approved: boolean, planName: string, until: Date | null, note: string) {
+    void send(
+      toId,
+      approved ? 'Your Premium is active' : 'We couldn’t confirm your payment',
+      layout(
+        approved ? 'Premium is active' : 'Payment not confirmed',
+        approved
+          ? p(`Thank you. ${esc(planName)} is active${until ? ` until ${until.toDateString()}` : ''}.`)
+          : p('We couldn’t match your payment with our records.') + (note ? p(`Reason: ${esc(note)}`) : '') + p('If you did pay, reply to this email with your receipt.'),
+        approved ? 'Open Match360' : 'View payment',
+        approved ? '/discover' : '/premium',
       ),
     );
   },

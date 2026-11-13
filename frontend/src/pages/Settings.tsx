@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { sendEmailVerification } from 'firebase/auth';
-import { BadgeCheck, LogOut, Mail, Trash2 } from 'lucide-react';
+import { BadgeCheck, ChevronRight, Crown, LocateFixed, LogOut, Mail, Trash2 } from 'lucide-react';
+import { getPosition } from '../lib/geo';
+import { useConfig } from '../lib/config';
 import { api, errMsg } from '../lib/api';
 import type { Me, MeResponse } from '../lib/types';
 import { useAuth } from '../context/AuthContext';
@@ -10,7 +12,9 @@ import { Avatar, FullScreenLoader, Modal, Spinner, Toggle } from '../components/
 import { Link } from 'react-router';
 
 export default function SettingsPage() {
-  const { me, fbUser, signOut } = useAuth();
+  const { me, fbUser, signOut, refetchMe } = useAuth();
+  const cfg = useConfig();
+  const [locBusy, setLocBusy] = useState(false);
   const qc = useQueryClient();
   const toast = useToast();
   const [del, setDel] = useState(false);
@@ -19,7 +23,7 @@ export default function SettingsPage() {
 
   const blocks = useQuery({ queryKey: ['blocks'], queryFn: () => api.get<{ blocked: { id: string; name: string; photo: string | null }[] }>('/blocks') });
   const save = useMutation({
-    mutationFn: (s: Partial<{ incognito: boolean; emailNotifications: boolean; threshold: number }>) => api.patch<{ user: Me }>('/me/settings', s),
+    mutationFn: (s: Partial<{ incognito: boolean; emailNotifications: boolean; threshold: number; photoBlur: boolean; interestedIn: string }>) => api.patch<{ user: Me }>('/me/settings', s),
     onSuccess: (r) => qc.setQueryData<MeResponse>(['me'], (o) => (o ? { ...o, user: r.user } : o)),
     onError: (e) => toast({ title: 'Couldn’t save', body: errMsg(e), tone: 'error' }),
   });
@@ -73,6 +77,64 @@ export default function SettingsPage() {
       )}
 
       <section className="card divide-y divide-rule px-5">
+        <Link to="/verify" className="flex items-center gap-4 py-4">
+          <BadgeCheck size={20} className={u.verified ? 'text-right' : 'text-cobalt'} />
+          <div className="flex-1">
+            <div className="font-semibold">Identity verification</div>
+            <div className="text-sm text-slate">{u.verified ? 'Verified' : me.verification === 'pending' ? 'Under review' : 'Get a verified badge by confirming your ID'}</div>
+          </div>
+          <ChevronRight size={18} className="text-slate" />
+        </Link>
+        <Link to="/premium" className="flex items-center gap-4 py-4">
+          <Crown size={20} className="text-cobalt" />
+          <div className="flex-1">
+            <div className="font-semibold">Premium</div>
+            <div className="text-sm text-slate">{cfg.data?.premium ? `Active until ${new Date(cfg.data.premiumUntil!).toLocaleDateString()}` : 'Remove ads and take more challenges'}</div>
+          </div>
+          <ChevronRight size={18} className="text-slate" />
+        </Link>
+      </section>
+
+      <section className="card divide-y divide-rule px-5">
+        <Row title="Blur my photos" text="Others see blurred photos until you’re connected.">
+          <Toggle label="Blur my photos" on={u.photoBlur} onChange={(v) => save.mutate({ photoBlur: v })} />
+        </Row>
+        <div className="flex items-center gap-4 py-5">
+          <div className="flex-1">
+            <div className="font-semibold">Show me</div>
+            <div className="mt-0.5 text-sm text-slate">Who appears in Discover.</div>
+          </div>
+          <select className="input w-40" value={u.interestedIn} onChange={(e) => save.mutate({ interestedIn: e.target.value })} aria-label="Show me">
+            {['Everyone', 'Women', 'Men'].map((o) => <option key={o}>{o}</option>)}
+          </select>
+        </div>
+        <div className="flex flex-wrap items-center gap-4 py-5">
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold">Location</div>
+            <div className="mt-0.5 text-sm text-slate">{u.hasLocation ? 'Shared. Others see only an approximate distance.' : 'Not shared. Share it to use “Near me”.'}</div>
+          </div>
+          <button
+            className="btn btn-ghost px-4 py-2 text-sm"
+            disabled={locBusy}
+            onClick={async () => {
+              setLocBusy(true);
+              try {
+                await api.post('/me/location', await getPosition());
+                refetchMe();
+                toast({ title: 'Location updated', tone: 'success' });
+              } catch (e) {
+                toast({ title: 'Location not updated', body: errMsg(e), tone: 'error' });
+              } finally {
+                setLocBusy(false);
+              }
+            }}
+          >
+            <LocateFixed size={16} /> {u.hasLocation ? 'Update' : 'Share'}
+          </button>
+          {u.hasLocation && (
+            <button className="btn btn-quiet px-3 py-2 text-sm" onClick={() => api.del('/me/location').then(() => { refetchMe(); toast({ title: 'Location removed', tone: 'success' }); })}>Remove</button>
+          )}
+        </div>
         <Row title="Email notifications" text="Only for new challenge requests, new connections and messages while you’re away.">
           <Toggle label="Email notifications" on={u.emailNotifications} onChange={(v) => save.mutate({ emailNotifications: v })} />
         </Row>
@@ -120,7 +182,8 @@ export default function SettingsPage() {
         <button onClick={signOut} className="flex w-full items-center gap-3 py-4 font-semibold hover:text-ink"><LogOut size={18} /> Sign out</button>
         <button onClick={() => setDel(true)} className="flex w-full items-center gap-3 py-4 font-semibold text-wrong"><Trash2 size={18} /> Delete account</button>
       </section>
-      <p className="pb-6 text-center text-xs text-slate">
+      <p className="pb-6 text-center text-xs leading-relaxed text-slate">
+        <Link to="/guidelines" className="hover:text-ink">Community guidelines</Link> · <Link to="/safety" className="hover:text-ink">Safety</Link> · <Link to="/refunds" className="hover:text-ink">Refunds</Link> ·{' '}
         <Link to="/privacy" className="hover:text-ink">Privacy</Link> · <Link to="/terms" className="hover:text-ink">Terms</Link> · Match360 v1.0
       </p>
 

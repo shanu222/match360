@@ -79,6 +79,8 @@ export default function Quiz() {
             text: `You can retake this challenge ${new Date(e.data.retryAt).toLocaleString([], { weekday: 'long', hour: 'numeric', minute: '2-digit' })}.`,
             action: { label: 'Keep exploring', to: '/discover' },
           });
+        if (e.code === 'daily_limit')
+          return setPhase({ k: 'blocked', title: 'Daily limit reached', text: e.message, action: e.data?.premium ? { label: 'Back to Discover', to: '/discover' } : { label: 'See Premium', to: '/premium' } });
         if (e.code === 'they_requested_you')
           return setPhase({ k: 'blocked', title: 'They already challenged you!', text: e.message, action: { label: 'Open Challenges', to: '/challenges' } });
         return setPhase({ k: 'blocked', title: 'Can’t start this challenge', text: e.message, action: { label: 'Back to Discover', to: '/discover' } });
@@ -111,7 +113,7 @@ export default function Quiz() {
         {phase.k === 'loading' && (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 text-slate">
             <LogoMark size={48} className="animate-pulse" />
-            Preparing the questions…
+            Writing your questions…
           </div>
         )}
         {phase.k === 'blocked' && (

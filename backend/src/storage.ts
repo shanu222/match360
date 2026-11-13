@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'node:crypto';
 import { config, r2Enabled } from './config.js';
@@ -44,5 +44,33 @@ export async function deletePhotos(urls: string[]) {
     await s3()
       .send(new DeleteObjectCommand({ Bucket: config.r2.bucket, Key: key }))
       .catch((e) => console.warn('[r2] delete failed', key, e?.message));
+  }
+}
+
+/* ---------- Private files: ID documents, selfies and payment proofs ----------
+ * Stored in R2_PRIVATE_BUCKET when set (recommended: a bucket with NO public access).
+ * Otherwise they go to the main bucket under an unguessable key. They are only ever shown to the admin
+ * through short-lived signed URLs, never through the public URL. */
+const privateBucket = () => config.r2Private || config.r2.bucket;
+export type PrivateKind = 'id_doc' | 'selfie' | 'proof';
+
+export async function signPrivateUpload(uid: string, kind: PrivateKind, contentType: string, size: number) {
+  const ext = ALLOWED_TYPES[contentType];
+  const key = `private/${kind}/${uid}/${randomUUID()}-${randomUUID()}.${ext}`;
+  const cmd = new PutObjectCommand({ Bucket: privateBucket(), Key: key, ContentType: contentType, ContentLength: size });
+  const uploadUrl = await getSignedUrl(s3(), cmd, { expiresIn: 300 });
+  return { uploadUrl, key };
+}
+export const isOwnPrivateKey = (uid: string, kind: PrivateKind, key: string) => typeof key === 'string' && key.startsWith(`private/${kind}/${uid}/`) && !key.includes('..');
+
+export async function signPrivateGet(key: string | null | undefined) {
+  if (!key || !r2Enabled()) return null;
+  return getSignedUrl(s3(), new GetObjectCommand({ Bucket: privateBucket(), Key: key }), { expiresIn: 600 });
+}
+export async function deletePrivate(keys: (string | null | undefined)[]) {
+  if (!r2Enabled()) return;
+  for (const key of keys) {
+    if (!key) continue;
+    await s3().send(new DeleteObjectCommand({ Bucket: privateBucket(), Key: key })).catch(() => {});
   }
 }

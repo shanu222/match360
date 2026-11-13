@@ -26,6 +26,19 @@ export const config = {
     bucket: process.env.R2_BUCKET || '',
     publicUrl: (process.env.R2_PUBLIC_URL || '').replace(/\/$/, ''),
   },
+  admin: {
+    email: (process.env.ADMIN_EMAIL || '').trim().toLowerCase(),
+    password: process.env.ADMIN_PASSWORD || '',
+    // Signs admin sessions and encrypts stored API keys. Falls back to a value derived from other secrets.
+    secret: process.env.ADMIN_SECRET || '',
+  },
+  ai: {
+    openai: process.env.OPENAI_API_KEY || '',
+    gemini: process.env.GEMINI_API_KEY || '',
+    anthropic: process.env.ANTHROPIC_API_KEY || '',
+    groq: process.env.GROQ_API_KEY || '',
+  },
+  r2Private: process.env.R2_PRIVATE_BUCKET || '',
   resend: {
     apiKey: process.env.RESEND_API_KEY || '',
     from: process.env.RESEND_FROM || 'Match360 <onboarding@resend.dev>',

@@ -5,29 +5,52 @@ export interface Profile {
   name: string;
   firstName: string;
   age: number | null;
+  gender: string;
+  country: string;
+  countryName: string;
   city: string;
+  hometown: string;
   job: string;
+  company: string;
+  industry: string;
+  educationLevel: string;
   education: string;
   languages: string;
   intent: string;
   interests: string[];
   bio: string;
   prompts: Prompt[];
+  heightCm: number | null;
+  maritalStatus: string;
+  children: string;
+  religion: string;
+  smoking: string;
+  drinking: string;
   photos: string[];
+  photosBlurred: boolean;
   verified: boolean;
+  premium: boolean;
   threshold: number;
   compatibility: number;
   sharedInterests: string[];
+  distanceKm: number | null;
   activeRecently: boolean;
   lastSeen: string;
 }
 
 export interface Me extends Profile {
   email: string;
+  emailVerified: boolean;
   dob: string | null;
+  interestedIn: string;
+  photosBlur: string[];
+  photoBlur: boolean;
+  hasLocation: boolean;
   onboarded: boolean;
   incognito: boolean;
   emailNotifications: boolean;
+  premiumUntil: string | null;
+  status: string;
   createdAt: string;
 }
 
@@ -40,16 +63,38 @@ export interface Stats {
   messagesSent: number;
 }
 export interface Counts { pendingRequests: number; unreadNotifications: number; unreadMessages: number }
-export interface MeResponse { user: Me; stats: Stats; counts: Counts }
+export interface MeResponse { user: Me; stats: Stats; counts: Counts; missing: string[]; verification: 'none' | 'pending' | 'approved' | 'rejected' }
 
 export interface Meta {
   intents: string[];
+  genders: string[];
+  interestedIn: string[];
   interests: string[];
-  cities: string[];
   prompts: string[];
+  educationLevels: string[];
+  industries: string[];
+  marital: string[];
+  children: string[];
+  smoking: string[];
+  drinking: string[];
+  religions: string[];
   uploadsEnabled: boolean;
   maxPhotos: number;
 }
+export interface Country { code: string; name: string; flag: string; phone: string }
+
+export interface Plan { id: string; name: string; months: number; pricePKR: number; priceUSD: number; highlight?: boolean }
+export interface PaymentMethod { id: string; name: string; enabled: boolean; currency: 'PKR' | 'USD'; details: { label: string; value: string }[]; link?: string; instructions: string }
+export interface AppConfig {
+  plans: Plan[];
+  paymentMethods: PaymentMethod[];
+  ads: { enabled: boolean; adsenseClient: string; slotDiscover: string; slotChats: string };
+  limits: { freeDailyChallenges: number; premiumDailyChallenges: number; freeRetakeHours: number; premiumRetakeHours: number };
+  premium: boolean;
+  premiumUntil: string | null;
+}
+export interface Payment { id: string; plan: string; months: number; amount: string | number; currency: string; method: string; reference: string; status: 'pending' | 'approved' | 'rejected'; note: string; created_at: string }
+export interface Verification { id: string; doc_type: string; status: 'pending' | 'approved' | 'rejected'; note: string; created_at: string }
 
 export type Relation =
   | { type: 'none' }

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import clsx from 'clsx';
-import { Briefcase, ChevronLeft, ChevronRight, GraduationCap, Languages, MapPin, Zap } from 'lucide-react';
+import {
+  Baby, Briefcase, Building2, ChevronLeft, ChevronRight, Cigarette, EyeOff, GlassWater, GraduationCap, Heart, Home, Languages, MapPin, Navigation, Ruler, School, Sparkles,
+} from 'lucide-react';
 import type { Profile } from '../lib/types';
 import { Avatar, Verified } from './ui';
 
@@ -8,24 +10,29 @@ export function PhotoCarousel({ p, className }: { p: Profile; className?: string
   const [i, setI] = useState(0);
   const n = p.photos.length;
   return (
-    <div className={clsx('relative overflow-hidden bg-paper', className)}>
+    <div className={clsx('relative overflow-hidden bg-rule', className)}>
       {n ? (
-        <img src={p.photos[Math.min(i, n - 1)]} alt={p.name} className="h-full w-full object-cover" draggable={false} />
+        <img src={p.photos[Math.min(i, n - 1)]} alt={p.photosBlurred ? `${p.firstName}’s photo, blurred` : p.name} className="h-full w-full object-cover" draggable={false} />
       ) : (
         <Avatar name={p.name} className="h-full w-full" rounded="rounded-none" />
+      )}
+      {p.photosBlurred && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3.5 py-1.5 text-sm font-medium text-ink shadow-pop">
+            <EyeOff size={15} /> Photos unblur when you connect
+          </span>
+        </div>
       )}
       {n > 1 && (
         <>
           <div className="absolute inset-x-3 top-3 flex gap-1.5">
-            {p.photos.map((_, k) => (
-              <span key={k} className={clsx('h-1 flex-1 rounded-full', k === i ? 'bg-white' : 'bg-white/35')} />
-            ))}
+            {p.photos.map((_, k) => <span key={k} className={clsx('h-1 flex-1 rounded-full', k === i ? 'bg-white' : 'bg-white/40')} />)}
           </div>
-          <button aria-label="Previous photo" onClick={() => setI((i - 1 + n) % n)} className="absolute inset-y-0 left-0 flex w-1/3 items-center pl-2 opacity-0 transition hover:opacity-100">
-            <ChevronLeft className="rounded-full bg-black/40 p-1" size={30} />
+          <button aria-label="Previous photo" onClick={() => setI((i - 1 + n) % n)} className="absolute inset-y-0 left-0 flex w-1/3 items-center pl-2 opacity-0 transition-opacity hover:opacity-100 focus-visible:opacity-100">
+            <ChevronLeft className="rounded-full bg-white/90 p-1 text-ink" size={30} />
           </button>
-          <button aria-label="Next photo" onClick={() => setI((i + 1) % n)} className="absolute inset-y-0 right-0 flex w-1/3 items-center justify-end pr-2 opacity-0 transition hover:opacity-100">
-            <ChevronRight className="rounded-full bg-black/40 p-1" size={30} />
+          <button aria-label="Next photo" onClick={() => setI((i + 1) % n)} className="absolute inset-y-0 right-0 flex w-1/3 items-center justify-end pr-2 opacity-0 transition-opacity hover:opacity-100 focus-visible:opacity-100">
+            <ChevronRight className="rounded-full bg-white/90 p-1 text-ink" size={30} />
           </button>
         </>
       )}
@@ -33,7 +40,39 @@ export function PhotoCarousel({ p, className }: { p: Profile; className?: string
   );
 }
 
+function Fact({ icon: Icon, children }: { icon: React.ComponentType<{ size?: number; className?: string }>; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-3 py-1.5">
+      <Icon size={18} className="mt-0.5 shrink-0 text-slate" />
+      <span>{children}</span>
+    </div>
+  );
+}
+
+function Section({ title, children }: { title?: string; children: React.ReactNode }) {
+  return (
+    <div className="px-5 py-5">
+      {title && <h4 className="mb-3 font-display text-lg font-semibold">{title}</h4>}
+      {children}
+    </div>
+  );
+}
+
+const heightText = (cm: number) => {
+  const inches = Math.round(cm / 2.54);
+  return `${cm} cm (${Math.floor(inches / 12)}′${inches % 12}″)`;
+};
+
 export function ProfileView({ p, self = false, heroClass = 'h-[420px]' }: { p: Profile; self?: boolean; heroClass?: string }) {
+  const lifestyle = [
+    p.heightCm ? { icon: Ruler, text: heightText(p.heightCm) } : null,
+    p.maritalStatus ? { icon: Heart, text: p.maritalStatus } : null,
+    p.children ? { icon: Baby, text: p.children } : null,
+    p.religion ? { icon: Sparkles, text: p.religion } : null,
+    p.smoking ? { icon: Cigarette, text: `Smoking: ${p.smoking.toLowerCase()}` } : null,
+    p.drinking ? { icon: GlassWater, text: `Drinking: ${p.drinking.toLowerCase()}` } : null,
+  ].filter(Boolean) as { icon: any; text: string }[];
+
   return (
     <div>
       <div className="relative">
@@ -53,38 +92,34 @@ export function ProfileView({ p, self = false, heroClass = 'h-[420px]' }: { p: P
           </div>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-white/90">
             <span className="inline-flex items-center gap-1.5"><Briefcase size={14} />{p.job}</span>
-            <span className="inline-flex items-center gap-1.5"><MapPin size={14} />{p.city}</span>
+            <span className="inline-flex items-center gap-1.5"><MapPin size={14} />{p.city}{p.countryName ? `, ${p.countryName}` : ''}</span>
+            {p.distanceKm != null && <span className="inline-flex items-center gap-1.5"><Navigation size={14} />About {p.distanceKm} km away</span>}
           </div>
         </div>
       </div>
-      <div className="px-5 pt-4">
+
+      <div className="flex flex-wrap gap-2 px-5 pt-4">
         <span className="inline-flex rounded-full bg-cobalt-soft px-3 py-1 text-[13px] font-semibold text-cobalt">Looking for {p.intent.toLowerCase()}</span>
+        {p.gender && <span className="inline-flex rounded-full border border-rule px-3 py-1 text-[13px] font-medium">{p.gender}</span>}
+        {p.premium && <span className="inline-flex rounded-full bg-marker px-3 py-1 text-[13px] font-semibold">Premium</span>}
       </div>
-      <div className="space-y-0 divide-y divide-rule">
+
+      <div className="divide-y divide-rule">
         {p.bio && (
           <Section title="About">
-            <p className="leading-relaxed">{p.bio}</p>
+            <p className="whitespace-pre-line leading-relaxed">{p.bio}</p>
           </Section>
         )}
-        {!self && (
-          <Section>
-            <div className="flex items-start gap-3 rounded-xl border border-marker bg-marker/25 p-3.5 text-sm leading-relaxed">
-              <Zap size={18} className="mt-0.5 shrink-0 fill-ink" />
-              <span>
-                To connect, answer five questions about {p.firstName}. {p.firstName} hopes for <b>{p.threshold}% or more</b>. The profile is hidden while you answer.
-              </span>
-            </div>
-          </Section>
-        )}
-        <Section title={`Interests${p.sharedInterests.length ? ` (${p.sharedInterests.length} shared)` : ''}`}>
-          <div className="flex flex-wrap gap-2">
-            {p.interests.map((i) => (
-              <span key={i} className={clsx('chip', p.sharedInterests.includes(i) && 'chip-shared')}>{i}</span>
-            ))}
-          </div>
+
+        <Section title="Work and education">
+          <Fact icon={Briefcase}>{p.job}</Fact>
+          {p.company && <Fact icon={Building2}>{p.company}{p.industry ? `, ${p.industry}` : ''}</Fact>}
+          {p.educationLevel && <Fact icon={GraduationCap}>{p.educationLevel}</Fact>}
+          {p.education && <Fact icon={School}>{p.education}</Fact>}
         </Section>
+
         {p.prompts.length > 0 && (
-          <Section title="In their words">
+          <Section title="In their own words">
             <div className="space-y-2.5">
               {p.prompts.map((x) => (
                 <div key={x.q} className="rounded-xl border border-rule p-4">
@@ -95,24 +130,27 @@ export function ProfileView({ p, self = false, heroClass = 'h-[420px]' }: { p: P
             </div>
           </Section>
         )}
-        {(p.education || p.languages) && (
-          <Section title="Details">
-            <div className="space-y-2 text-[15px] text-slate">
-              {p.education && <div className="flex items-center gap-2.5"><GraduationCap size={17} className="text-slate" />{p.education}</div>}
-              {p.languages && <div className="flex items-center gap-2.5"><Languages size={17} className="text-slate" />{p.languages}</div>}
+
+        <Section title={`Interests${p.sharedInterests.length && !self ? ` (${p.sharedInterests.length} shared)` : ''}`}>
+          <div className="flex flex-wrap gap-2">
+            {p.interests.map((i) => <span key={i} className={clsx('chip', p.sharedInterests.includes(i) && 'chip-shared')}>{i}</span>)}
+          </div>
+        </Section>
+
+        <Section title="Background">
+          <Fact icon={MapPin}>Lives in {p.city}{p.countryName ? `, ${p.countryName}` : ''}</Fact>
+          {p.hometown && <Fact icon={Home}>From {p.hometown}</Fact>}
+          {p.languages && <Fact icon={Languages}>Speaks {p.languages}</Fact>}
+        </Section>
+
+        {lifestyle.length > 0 && (
+          <Section title="Lifestyle">
+            <div className="grid gap-x-6 sm:grid-cols-2">
+              {lifestyle.map((x) => <Fact key={x.text} icon={x.icon}>{x.text}</Fact>)}
             </div>
           </Section>
         )}
       </div>
-    </div>
-  );
-}
-
-function Section({ title, children }: { title?: string; children: React.ReactNode }) {
-  return (
-    <div className="px-5 py-5">
-      {title && <h4 className="mb-3 text-sm font-semibold text-slate">{title}</h4>}
-      {children}
     </div>
   );
 }

@@ -30,7 +30,7 @@ export function ChallengeIntro({
         )}
       </div>
       <ul className="mt-6 space-y-3 text-[15px] text-slate">
-        <li className="flex gap-3"><ListChecks className="shrink-0 text-cobalt" size={20} />5 questions built from {user.firstName}’s profile</li>
+        <li className="flex gap-3"><ListChecks className="shrink-0 text-cobalt" size={20} />Five questions about {user.firstName}</li>
         <li className="flex gap-3"><Clock className="shrink-0 text-cobalt" size={20} />20 seconds per question</li>
         <li className="flex gap-3"><Eye className="shrink-0 text-cobalt" size={20} />The profile is hidden while you answer</li>
         {purpose === 'request' && <li className="flex gap-3"><Target className="shrink-0 text-cobalt" size={20} />{user.firstName} hopes for {user.threshold}% or more. You get one attempt a day.</li>}

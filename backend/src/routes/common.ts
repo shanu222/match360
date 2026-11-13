@@ -25,7 +25,7 @@ export async function isBlocked(a: string, b: string) {
 export async function visibleUser(viewerId: string, id: string) {
   if (!id || id === viewerId) throw notFound('Profile not found');
   const u = await loadUser(id);
-  if (!u || !u.onboarded || (await isBlocked(viewerId, id))) throw notFound('Profile not found');
+  if (!u || !u.onboarded || u.status !== 'active' || (await isBlocked(viewerId, id))) throw notFound('Profile not found');
   return u;
 }
 

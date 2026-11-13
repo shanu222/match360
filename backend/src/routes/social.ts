@@ -3,8 +3,9 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { z } from 'zod';
 import { q, tx } from '../db.js';
 import { bad, conflict, forbidden, notFound, parse } from '../http.js';
-import { ageFrom, publicProfile, type UserRow } from '../profiles.js';
-import { generateQuiz, SECONDS_PER_QUESTION, type StoredQuestion } from '../quiz.js';
+import { isPremium, publicProfile, type UserRow } from '../profiles.js';
+import { buildQuiz, SECONDS_PER_QUESTION, type StoredQuestion } from '../quiz.js';
+import { getSetting } from '../settings.js';
 import { emit, isOnline, notify } from '../realtime.js';
 import { emails } from '../email.js';
 import { isBlocked, isUuid, loadUser, me, param, visibleUser } from './common.js';
@@ -15,7 +16,9 @@ const byUser = (req: any) => req.user?.uid || ipKeyGenerator(req.ip || '');
 const quizLimiter = rateLimit({ windowMs: 10 * 60_000, limit: 30, keyGenerator: byUser, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many challenges — take a short break.' } });
 const msgLimiter = rateLimit({ windowMs: 60_000, limit: 40, keyGenerator: byUser, standardHeaders: true, legacyHeaders: false, message: { error: 'You’re sending messages too fast.' } });
 
-const DAY = 24 * 3600_000;
+const HOUR = 3600_000;
+// One in-flight question generation per (taker, target, purpose) so double taps never create two attempts.
+const inflight = new Map<string, Promise<any>>();
 const SEND_WINDOW = 3600_000;
 
 function clientQuiz(attempt: any, target: UserRow) {
@@ -23,7 +26,7 @@ function clientQuiz(attempt: any, target: UserRow) {
   return {
     attemptId: attempt.id,
     purpose: attempt.purpose,
-    target: { id: target.id, firstName: target.name.split(' ')[0], photo: target.photos[0] || null, threshold: target.threshold },
+    target: { id: target.id, firstName: target.name.split(' ')[0], photo: (target.photo_blur ? target.photos_blurred[0] : target.photos[0]) || null, threshold: target.threshold },
     questions: qs.map((x) => ({ q: x.q, options: x.options })),
     secondsPerQuestion: SECONDS_PER_QUESTION,
     expiresAt: attempt.expires_at,
@@ -66,30 +69,46 @@ social.post('/quiz/start', quizLimiter, async (req, res) => {
     if (purpose === 'request') {
       if (last.submitted_at && now - new Date(last.submitted_at).getTime() < SEND_WINDOW)
         throw conflict('You already finished this challenge', 'ready_to_send', { attemptId: last.id, score: last.score });
-      const retryAt = new Date(new Date(last.started_at).getTime() + DAY);
+      const limits = await getSetting('limits');
+      const hours = isPremium(viewer) ? limits.premiumRetakeHours : limits.freeRetakeHours;
+      const retryAt = new Date(new Date(last.started_at).getTime() + hours * HOUR);
       if (retryAt.getTime() > now) throw conflict('You can retake this challenge later', 'cooldown', { retryAt });
     }
   }
 
-  const questions = generateQuiz({
-    name: target.name,
-    age: ageFrom(target.dob),
-    city: target.city,
-    job: target.job,
-    education: target.education,
-    languages: target.languages,
-    intent: target.intent,
-    interests: target.interests,
-    prompts: target.prompts,
-  });
-  if (questions.length < 3) throw bad('This profile does not have enough details for a challenge yet', 'profile_too_thin');
-  const seconds = questions.length * SECONDS_PER_QUESTION + 30;
-  const r = await q(
-    `INSERT INTO quiz_attempts (taker_id, target_id, purpose, questions, expires_at)
-     VALUES ($1,$2,$3,$4, now() + make_interval(secs => $5)) RETURNING *`,
-    [viewer.id, target.id, purpose, JSON.stringify(questions), seconds],
-  );
-  res.json(clientQuiz(r.rows[0], target));
+  if (purpose === 'request') {
+    const limits = await getSetting('limits');
+    const premium = isPremium(viewer);
+    const cap = premium ? limits.premiumDailyChallenges : limits.freeDailyChallenges;
+    const used = (await q(`SELECT count(*)::int AS n FROM quiz_attempts WHERE taker_id=$1 AND purpose='request' AND started_at > now() - interval '24 hours'`, [viewer.id])).rows[0].n;
+    if (used >= cap)
+      throw conflict(
+        premium ? `You’ve taken ${cap} challenges in the last 24 hours. Try again later.` : `Free accounts can take ${cap} challenges a day. Upgrade to Premium for more, or try again tomorrow.`,
+        'daily_limit',
+        { premium },
+      );
+  }
+
+  const lockKey = `${viewer.id}|${target.id}|${purpose}`;
+  if (inflight.has(lockKey)) return res.json(await inflight.get(lockKey));
+  const job = (async () => {
+
+    const { questions, source } = await buildQuiz(target);
+    if (questions.length < 3) throw bad('This profile does not have enough details for a challenge yet', 'profile_too_thin');
+    const seconds = questions.length * SECONDS_PER_QUESTION + 30;
+    const r = await q(
+      `INSERT INTO quiz_attempts (taker_id, target_id, purpose, questions, expires_at, source)
+       VALUES ($1,$2,$3,$4, now() + make_interval(secs => $5), $6) RETURNING *`,
+      [viewer.id, target.id, purpose, JSON.stringify(questions), seconds, source],
+    );
+    return clientQuiz(r.rows[0], target);
+  })();
+  inflight.set(lockKey, job);
+  try {
+    res.json(await job);
+  } finally {
+    inflight.delete(lockKey);
+  }
 });
 
 const submitSchema = z.object({ answers: z.array(z.number().int().min(-1).max(3)).max(20) });
@@ -209,7 +228,7 @@ social.get('/requests', async (req, res) => {
     note: dir === 'received' ? r.note : r.note,
     createdAt: r.request_created_at,
     respondedAt: r.responded_at,
-    user: publicProfile(r as UserRow, viewer),
+    user: publicProfile(r as UserRow, viewer, { connected: r.request_status === 'accepted' }),
   });
   res.json({
     received: rows.filter((r) => r.receiver_id === viewer.id && r.request_status !== 'cancelled').map((r) => map(r, 'received')),
@@ -275,7 +294,7 @@ social.get('/matches', async (req, res) => {
   res.json({
     matches: rows.map((r) => ({
       id: r.match_id,
-      user: publicProfile(r as UserRow, viewer),
+      user: publicProfile(r as UserRow, viewer, { connected: true }),
       scores: matchScores(r, viewer.id),
       lastMessage: r.last_body ? { body: r.last_body, fromMe: r.last_sender === viewer.id, at: r.last_at } : null,
       unread: r.unread,
@@ -289,7 +308,7 @@ social.get('/matches/:id', async (req, res) => {
   const { m, otherId } = await ownMatch(param(req, 'id'), viewer.id);
   const other = await loadUser(otherId);
   if (!other) throw notFound('Conversation not found');
-  res.json({ id: m.id, user: publicProfile(other, viewer), scores: matchScores(m, viewer.id), connectedAt: m.responded_at, online: isOnline(otherId) });
+  res.json({ id: m.id, user: publicProfile(other, viewer, { connected: true }), scores: matchScores(m, viewer.id), connectedAt: m.responded_at, online: isOnline(otherId) });
 });
 
 social.get('/matches/:id/messages', async (req, res) => {
