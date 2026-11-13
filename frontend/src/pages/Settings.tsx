@@ -1,0 +1,152 @@
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { sendEmailVerification } from 'firebase/auth';
+import { BadgeCheck, LogOut, Mail, Trash2 } from 'lucide-react';
+import { api, errMsg } from '../lib/api';
+import type { Me, MeResponse } from '../lib/types';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/Toast';
+import { Avatar, FullScreenLoader, Modal, Spinner, Toggle } from '../components/ui';
+import { Link } from 'react-router';
+
+export default function SettingsPage() {
+  const { me, fbUser, signOut } = useAuth();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [del, setDel] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+  const [threshold, setThreshold] = useState<number | null>(null);
+
+  const blocks = useQuery({ queryKey: ['blocks'], queryFn: () => api.get<{ blocked: { id: string; name: string; photo: string | null }[] }>('/blocks') });
+  const save = useMutation({
+    mutationFn: (s: Partial<{ incognito: boolean; emailNotifications: boolean; threshold: number }>) => api.patch<{ user: Me }>('/me/settings', s),
+    onSuccess: (r) => qc.setQueryData<MeResponse>(['me'], (o) => (o ? { ...o, user: r.user } : o)),
+    onError: (e) => toast({ title: 'Couldn’t save', body: errMsg(e), tone: 'error' }),
+  });
+  const unblock = useMutation({
+    mutationFn: (id: string) => api.del(`/blocks/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['blocks'] }),
+  });
+  const remove = useMutation({
+    mutationFn: () => api.del('/me'),
+    onSuccess: async () => {
+      await signOut();
+      window.location.href = '/';
+    },
+    onError: (e) => toast({ title: 'Couldn’t delete account', body: errMsg(e), tone: 'error' }),
+  });
+
+  if (!me) return <FullScreenLoader />;
+  const u = me.user;
+  const bar = threshold ?? u.threshold;
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-4">
+      <h1 className="text-3xl font-extrabold tracking-tight">Settings</h1>
+
+      <section className="card flex items-center gap-4 p-5">
+        <Avatar src={u.photos[0]} name={u.name} className="h-14 w-14" />
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-bold">{u.name}</div>
+          <div className="flex items-center gap-1.5 truncate text-sm text-ink-400">
+            <Mail size={14} /> {u.email}
+            {u.verified && <BadgeCheck size={15} className="fill-sky-500 text-white" />}
+          </div>
+        </div>
+        <Link to="/me/edit" className="btn btn-ghost px-4 py-2 text-sm">Edit</Link>
+      </section>
+
+      {!u.verified && fbUser && (
+        <section className="card flex flex-col gap-3 border-amber-400/30 p-5 sm:flex-row sm:items-center">
+          <div className="flex-1 text-sm text-ink-300"><b className="text-white">Verify your email</b> to get the verified badge and appear in “Verified” filters.</div>
+          <button
+            className="btn btn-ghost px-4 py-2 text-sm"
+            onClick={() =>
+              sendEmailVerification(fbUser)
+                .then(() => toast({ title: 'Verification email sent', body: 'Check your inbox, then sign in again.', tone: 'success' }))
+                .catch(() => toast({ title: 'Please wait a bit before requesting another email', tone: 'error' }))
+            }
+          >
+            Send link
+          </button>
+        </section>
+      )}
+
+      <section className="card divide-y divide-ink-700 px-5">
+        <Row title="Email notifications" text="Only for new challenge requests, new connections and messages while you’re away.">
+          <Toggle label="Email notifications" on={u.emailNotifications} onChange={(v) => save.mutate({ emailNotifications: v })} />
+        </Row>
+        <Row title="Incognito mode" text="Hide from Discover. Only people you challenge can see you.">
+          <Toggle label="Incognito mode" on={u.incognito} onChange={(v) => save.mutate({ incognito: v })} />
+        </Row>
+        <div className="py-5">
+          <div className="flex items-center justify-between font-bold"><span>Challenge bar</span><span className="text-brand">{bar}%</span></div>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={bar}
+            aria-label="Challenge bar"
+            onChange={(e) => setThreshold(Number(e.target.value))}
+            onPointerUp={() => threshold !== null && save.mutate({ threshold })}
+            onKeyUp={() => threshold !== null && save.mutate({ threshold })}
+            className="mt-3 w-full"
+          />
+          <p className="mt-1 text-sm text-ink-400">The score you hope people reach. Lower scores are flagged but never blocked.</p>
+        </div>
+      </section>
+
+      <section className="card p-5">
+        <div className="font-bold">Blocked people</div>
+        {blocks.isLoading ? (
+          <div className="py-4"><Spinner /></div>
+        ) : !blocks.data?.blocked.length ? (
+          <p className="mt-1 text-sm text-ink-400">You haven’t blocked anyone.</p>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {blocks.data.blocked.map((b) => (
+              <div key={b.id} className="flex items-center gap-3">
+                <Avatar src={b.photo} name={b.name} className="h-10 w-10" rounded="rounded-xl" />
+                <span className="flex-1 truncate font-semibold">{b.name}</span>
+                <button className="btn btn-ghost px-3 py-1.5 text-sm" disabled={unblock.isPending} onClick={() => unblock.mutate(b.id)}>Unblock</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="card divide-y divide-ink-700 px-5">
+        <button onClick={signOut} className="flex w-full items-center gap-3 py-4 font-semibold hover:text-white"><LogOut size={18} /> Sign out</button>
+        <button onClick={() => setDel(true)} className="flex w-full items-center gap-3 py-4 font-semibold text-rose-300"><Trash2 size={18} /> Delete account</button>
+      </section>
+      <p className="pb-6 text-center text-xs text-ink-400">
+        <Link to="/privacy" className="hover:text-white">Privacy</Link> · <Link to="/terms" className="hover:text-white">Terms</Link> · Match360 v1.0
+      </p>
+
+      <Modal open={del} onClose={() => setDel(false)} title="Delete your account?">
+        <p className="text-ink-300">This permanently deletes your profile, photos, challenges, connections and messages. This can’t be undone.</p>
+        <label className="label">Type <b className="text-white">DELETE</b> to confirm</label>
+        <input className="input" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} autoComplete="off" />
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <button className="btn btn-ghost" onClick={() => setDel(false)}>Cancel</button>
+          <button className="btn btn-danger" disabled={confirmText !== 'DELETE' || remove.isPending} onClick={() => remove.mutate()}>
+            {remove.isPending ? <Spinner size={18} /> : 'Delete forever'}
+          </button>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+function Row({ title, text, children }: { title: string; text: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-4 py-5">
+      <div className="flex-1">
+        <div className="font-bold">{title}</div>
+        <div className="mt-0.5 text-sm text-ink-400">{text}</div>
+      </div>
+      {children}
+    </div>
+  );
+}

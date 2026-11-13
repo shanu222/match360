@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body { @apply bg-ink-950 font-sans text-white antialiased; }
+  ::selection { background: rgba(255, 95, 109, 0.35); }
+  * { -webkit-tap-highlight-color: transparent; }
+  input[type='date']::-webkit-calendar-picker-indicator { filter: invert(0.8); }
+  input[type='range'] { accent-color: #ff5f6d; }
+}
+
+@layer components {
+  .btn { @apply inline-flex select-none items-center justify-center gap-2 rounded-2xl px-5 py-3 text-[15px] font-bold transition active:scale-[.98] disabled:pointer-events-none disabled:opacity-50; }
+  .btn-primary { @apply bg-brand text-white shadow-glow hover:brightness-110; }
+  .btn-ghost { @apply border border-ink-600 bg-ink-800 text-white hover:border-ink-400/60 hover:bg-ink-700; }
+  .btn-quiet { @apply text-ink-300 hover:bg-ink-800 hover:text-white; }
+  .btn-danger { @apply border border-rose-500/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20; }
+  .input { @apply w-full rounded-2xl border border-ink-600 bg-ink-800 px-4 py-3 text-[15px] text-white outline-none transition placeholder:text-ink-400 focus:border-violet focus:ring-2 focus:ring-violet/30; }
+  .label { @apply mb-2 mt-5 block text-[13px] font-bold text-ink-300; }
+  .card { @apply rounded-3xl border border-ink-700 bg-ink-850; }
+  .chip { @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-ink-600 bg-ink-800 px-3.5 py-1.5 text-[13px] font-semibold text-ink-300 transition; }
+  .chip-on { @apply border-transparent bg-brand text-white; }
+  .chip-shared { @apply border-coral/50 bg-coral/10 text-rose-100; }
+  .text-brand { @apply bg-brand bg-clip-text text-transparent; }
+  .scroll-none { scrollbar-width: none; }
+  .scroll-none::-webkit-scrollbar { display: none; }
+}
