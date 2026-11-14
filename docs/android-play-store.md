@@ -141,3 +141,18 @@ Premium cannot be bought inside the Android app in v1.0, because Google Play onl
 2. App: add a billing plugin, implement `listPremiumProducts` and `purchasePremium` in `frontend/src/native/billing.ts`, set `playBillingAvailable = true`, and render the purchase section in `pages/Premium.tsx` (the place is marked).
 3. Backend: a new endpoint that receives the purchase token, verifies it with the Google Play Developer API (`purchases.subscriptionsv2.get`) using a service account linked in Play Console, sets `premium_until`, and acknowledges the purchase. Add a Pub/Sub push endpoint for Real-time Developer Notifications so renewals, cancellations and refunds update `premium_until`.
 4. Update the Data safety form (Purchase history) and the content rating (digital purchases: yes).
+
+## App access (reviewer account)
+
+In Play Console > App content > App access, choose "All or some functionality is restricted" and add:
+
+- Name: `Reviewer account`
+- Email: `play.review@sustainablesolution360.com`
+- Password: stored outside the repo in `C:\Users\USER\match360-keys\play-review-account.txt`
+- Other information: "Sign in with email and password on the first screen. Google sign-in is not needed."
+
+The account has a complete profile. To give it Premium (no ads), open the web admin panel > Users, find the email and add Premium days. Accept its pending request from your own account so reviewers also see an open chat.
+
+## AdMob consent message
+
+AdMob > Privacy & messaging > European regulations > create a message for the Match360 app and publish it. Until one exists the app shows ads without a consent prompt, which is not allowed for users in the EEA, UK and Switzerland. "Privacy choices" in Settings opens the form once it exists.

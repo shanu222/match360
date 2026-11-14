@@ -38,7 +38,8 @@ function NativeBanner({ premium }: { premium: boolean }) {
       if (!active) return void ads.hideBanner();
       // The plugin adds the system navigation inset itself, so pass only the tab bar's own height.
       const bar = document.getElementById('tabbar');
-      const barH = bar && bar.offsetParent !== null ? bar.getBoundingClientRect().height : 0;
+      // (offsetParent is always null for a fixed element, so measure the box itself; it is 0 when hidden.)
+      const barH = bar ? bar.getBoundingClientRect().height : 0;
       const inset = probe.current?.getBoundingClientRect().height ?? 0;
       void ads.showBanner(Math.max(0, barH - inset));
     });
