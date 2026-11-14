@@ -23,9 +23,13 @@
 -if class androidx.credentials.CredentialManager
 -keep class androidx.credentials.playservices.** { *; }
 
-# --- Google Mobile Ads + UMP consent (consumer rules ship with the SDK; these are a safety net) ---
--keep class com.google.android.gms.ads.** { *; }
--keep class com.google.android.ump.** { *; }
+# --- Google Mobile Ads + UMP consent ---
+# No rules here on purpose: both SDKs ship their own R8 rules. A blanket keep on com.google.android.gms.ads
+# stopped R8 from shrinking, renaming or optimising about 11,000 classes (two thirds of the app), which is
+# what Play Console reports as low DEX code optimisation.
+
+# Move renamed classes into one package: smaller DEX, and what Play Console calls "Repackage classes".
+-repackageclasses
 
 # Keep line numbers for readable Play Console crash reports.
 -keepattributes SourceFile, LineNumberTable

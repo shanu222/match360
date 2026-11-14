@@ -4,7 +4,6 @@
  */
 import { App } from '@capacitor/app';
 import { Keyboard } from '@capacitor/keyboard';
-import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 
 /** Screens where Back leaves the app (minimises it) instead of navigating. */
@@ -58,7 +57,8 @@ export function initNative() {
   document.documentElement.classList.add('native-android');
   interceptExternalLinks();
   void App.addListener('backButton', ({ canGoBack }) => onBack(canGoBack));
-  StatusBar.setStyle({ style: Style.Light }).catch(() => {});
+  // System bar style and insets are handled by Capacitor's SystemBars (see capacitor.config.ts); no status-bar plugin,
+  // because its colour calls are deprecated from Android 15.
   Keyboard.addListener('keyboardWillShow', () => document.documentElement.classList.add('keyboard-open')).catch(() => {});
   Keyboard.addListener('keyboardDidHide', () => document.documentElement.classList.remove('keyboard-open')).catch(() => {});
   SplashScreen.hide().catch(() => {});

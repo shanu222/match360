@@ -15,4 +15,7 @@ ext {
     cordovaAndroidVersion = '14.0.1'
     // Include the Google sign-in SDK in @capacitor-firebase/authentication.
     rgcfaIncludeGoogle = true
+    // 24.2.0 is the first version whose R8 rules no longer keep every com.google.android.gms.internal class
+    // (that rule left about 10,000 classes unshrunk and unrenamed: Play Console "DEX code optimisation").
+    firebaseAuthVersion = '24.2.0'
 }
