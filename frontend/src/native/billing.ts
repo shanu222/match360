@@ -16,6 +16,7 @@ const KEY = String(import.meta.env.VITE_REVENUECAT_ANDROID_KEY || '').trim();
 export const ENTITLEMENT = 'premium';
 /** Only a Play Store key enables purchases; a RevenueCat Test Store key (test_…) must never ship. */
 export const playBillingAvailable = isAndroidApp && KEY.startsWith('goog_');
+export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.sustainablesolution360.match360';
 export const MANAGE_URL = 'https://play.google.com/store/account/subscriptions?package=com.sustainablesolution360.match360';
 
 export interface PlayPlan {
@@ -25,6 +26,7 @@ export interface PlayPlan {
   period: string; // "month", "3 months", "year"…
   perMonth: string | null;
   recurring: boolean;
+  months: number; // plan length, used to match the plan list shared with the website (0 when unknown)
 }
 
 const sdk = () => import('@revenuecat/purchases-capacitor').then((m) => m.Purchases);
@@ -47,14 +49,14 @@ function ready(userId: string): Promise<void> {
   return setup;
 }
 
-const LABELS: Record<string, [name: string, period: string]> = {
-  WEEKLY: ['Weekly', 'week'],
-  MONTHLY: ['Monthly', 'month'],
-  TWO_MONTH: ['2 months', '2 months'],
-  THREE_MONTH: ['3 months', '3 months'],
-  SIX_MONTH: ['6 months', '6 months'],
-  ANNUAL: ['Yearly', 'year'],
-  LIFETIME: ['Lifetime', ''],
+const LABELS: Record<string, [name: string, period: string, months: number]> = {
+  WEEKLY: ['Weekly', 'week', 0],
+  MONTHLY: ['Monthly', 'month', 1],
+  TWO_MONTH: ['2 months', '2 months', 2],
+  THREE_MONTH: ['3 months', '3 months', 3],
+  SIX_MONTH: ['6 months', '6 months', 6],
+  ANNUAL: ['Yearly', 'year', 12],
+  LIFETIME: ['Lifetime', '', 0],
 };
 
 export async function listPremiumPlans(userId: string): Promise<PlayPlan[]> {
@@ -63,9 +65,9 @@ export async function listPremiumPlans(userId: string): Promise<PlayPlan[]> {
   packages.clear();
   return (offerings.current?.availablePackages || []).map((p) => {
     packages.set(p.identifier, p);
-    const [name, period] = LABELS[String(p.packageType)] || [p.product.title.replace(/\s*\(.*\)\s*$/, '') || 'Premium', ''];
+    const [name, period, months] = LABELS[String(p.packageType)] || [p.product.title.replace(/\s*\(.*\)\s*$/, '') || 'Premium', '', 0];
     const recurring = String(p.packageType) !== 'LIFETIME';
-    return { id: p.identifier, name, price: p.product.priceString, period, perMonth: recurring && String(p.packageType) !== 'MONTHLY' ? p.product.pricePerMonthString : null, recurring };
+    return { id: p.identifier, name, price: p.product.priceString, period, perMonth: recurring && String(p.packageType) !== 'MONTHLY' ? p.product.pricePerMonthString : null, recurring, months };
   });
 }
 

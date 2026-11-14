@@ -8,7 +8,7 @@ import {
 import { ageFrom, isComplete, isPremium, missingFields, privateProfile, publicProfile, type UserRow } from '../profiles.js';
 import { ALLOWED_TYPES, MAX_UPLOAD_BYTES, deletePhotos, deletePrivate, isOwnPhotoUrl, isOwnPrivateKey, putPhoto, putPrivate, signPhotoUpload, signPrivateUpload, sniffImage } from '../storage.js';
 import express from 'express';
-import { r2Enabled } from '../config.js';
+import { config, r2Enabled } from '../config.js';
 import { actionLink, clearStatusCache, deleteFirebaseUser, forgetUser } from '../auth.js';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { citiesOf, countries, countryName, isCityOf, isCountry, nearestCity } from '../geo.js';
@@ -123,7 +123,8 @@ account.get('/config', async (req, res) => {
   const [plans, methods, ads, limits] = await Promise.all([getSetting('plans'), getSetting('paymentMethods'), getSetting('ads'), getSetting('limits')]);
   res.json({
     plans,
-    paymentMethods: methods.filter((m) => m.enabled),
+    // Premium is sold only in the Android app through Google Play, so no direct payment details are sent out.
+    paymentMethods: [] as typeof methods,
     ads: { enabled: ads.enabled, adsenseClient: ads.adsenseClient, slotDiscover: ads.slotDiscover, slotChats: ads.slotChats },
     limits,
     premium: u ? isPremium(u) : false,
@@ -493,6 +494,8 @@ const paySchema = z.object({
   proofKey: z.string().max(300).optional(),
 });
 account.post('/payments', async (req, res) => {
+  // Direct payments (Easypaisa, JazzCash, bank) were retired when Premium moved to Google Play.
+  if (!config.directPayments) throw new HttpError(410, 'Premium is now bought in the Match360 Android app through Google Play.', 'direct_payments_closed');
   const u = await me(req);
   const s = parse(paySchema, req.body);
   const [plans, methods] = await Promise.all([getSetting('plans'), getSetting('paymentMethods')]);

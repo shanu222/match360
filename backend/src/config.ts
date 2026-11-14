@@ -51,6 +51,8 @@ export const config = {
     logging: process.env.AI_LOGGING !== 'false',
   },
   r2Private: process.env.R2_PRIVATE_BUCKET || '',
+  // Direct payments on the website (Easypaisa, JazzCash, bank). Off: Premium is sold through Google Play only.
+  directPayments: process.env.DIRECT_PAYMENTS === '1',
   revenuecat: {
     // Google Play purchases made in the Android app (see routes/billing.ts).
     webhookAuth: (process.env.REVENUECAT_WEBHOOK_AUTH || '').trim(),

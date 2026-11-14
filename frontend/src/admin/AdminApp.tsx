@@ -368,7 +368,9 @@ function UserDetail({ base }: { base: string }) {
           <button className="btn btn-ghost px-3 py-2 text-sm" onClick={() => patch.mutate({ status: 'active', statusReason: '' })}>Restore account</button>
         )}
         <button className="btn btn-ghost px-3 py-2 text-sm" onClick={() => patch.mutate({ idVerified: !u.idVerified })}>{u.idVerified ? 'Remove verified badge' : 'Mark verified'}</button>
-        <button className="btn btn-ghost px-3 py-2 text-sm" onClick={() => patch.mutate({ premiumDays: 30 })}>Give 30 days Premium</button>
+        {([[30, '1 month'], [183, '6 months'], [365, '1 year']] as const).map(([days, label]) => (
+          <button key={days} className="btn btn-ghost px-3 py-2 text-sm" onClick={() => patch.mutate({ premiumDays: days })}>Give Premium: {label}</button>
+        ))}
         {u.premium && <button className="btn btn-ghost px-3 py-2 text-sm" onClick={() => patch.mutate({ removePremium: true })}>Remove Premium</button>}
         {u.photos.length > 0 && <button className="btn btn-ghost px-3 py-2 text-sm" onClick={() => patch.mutate({ hidePhotos: true })}>Remove photos</button>}
         <button className="btn btn-danger px-3 py-2 text-sm" onClick={() => setDialog('delete')}>Delete account</button>
