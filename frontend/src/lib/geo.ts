@@ -60,4 +60,8 @@ export function getPosition(): Promise<{ lat: number; lng: number }> {
   });
 }
 
-export const flagOf = (countries: Country[] | undefined, code: string) => countries?.find((c) => c.code === code)?.flag || '';
+/** Windows has no flag emoji and shows the two country letters instead ("PK"), so flags are left out there. */
+const flagsOk = typeof navigator === 'undefined' || !/Windows/i.test(navigator.userAgent);
+export const flagOf = (countries: Country[] | undefined, code: string) => (flagsOk ? countries?.find((c) => c.code === code)?.flag || '' : '');
+/** "🇵🇰 Pakistan" where flags can be drawn, otherwise just "Pakistan". */
+export const countryLabel = (c: Country) => (flagsOk && c.flag ? `${c.flag} ${c.name}` : c.name);

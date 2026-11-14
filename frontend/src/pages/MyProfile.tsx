@@ -1,7 +1,9 @@
 import { Link, useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { Award, BadgeCheck, Eye, Handshake, ListChecks, MessageCircle, Pencil, Settings, Target, UserCheck, Users } from 'lucide-react';
+import { Award, BadgeCheck, Eye, Handshake, ListChecks, MessageCircle, Pencil, Settings, Share2, Target, UserCheck, Users } from 'lucide-react';
+import { inviteFriend } from '../lib/share';
+import { useToast } from '../context/Toast';
 import { useAuth } from '../context/AuthContext';
 import { ProfileView } from '../components/ProfileView';
 import { ProfileViews } from '../components/ProfileViews';
@@ -26,6 +28,7 @@ export default function MyProfile() {
   const { me } = useAuth();
   const qc = useQueryClient();
   const nav = useNavigate();
+  const toast = useToast();
   useEffect(() => {
     qc.invalidateQueries({ queryKey: ['me'] });
   }, [qc]);
@@ -81,6 +84,18 @@ export default function MyProfile() {
             </div>
           </div>
           <button onClick={() => nav('/me/preview')} className="btn btn-ghost mt-4 w-full"><Eye size={17} /> How others see me</button>
+        </div>
+        <div className="card flex flex-wrap items-center justify-between gap-3 p-5">
+          <div className="min-w-0">
+            <div className="font-bold">Invite a friend</div>
+            <div className="mt-0.5 text-sm text-slate">More people you know means better matches for everyone.</div>
+          </div>
+          <button
+            className="btn btn-ghost"
+            onClick={() => inviteFriend().then((r) => r === 'copied' && toast({ title: 'Invitation copied', body: 'Paste it into a message to your friend.', tone: 'success' })).catch(() => toast({ title: 'Couldn’t share right now', tone: 'error' }))}
+          >
+            <Share2 size={17} /> Invite
+          </button>
         </div>
         <div className="card p-5">
           <div className="mb-4 font-semibold">Milestones</div>

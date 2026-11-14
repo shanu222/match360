@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { Check, ChevronDown, LocateFixed, Search } from 'lucide-react';
 import { api, errMsg } from '../lib/api';
-import { getPosition, useCities, useCountries } from '../lib/geo';
+import { countryLabel, getPosition, useCities, useCountries } from '../lib/geo';
 import { Spinner } from './ui';
 
 /** Searchable single-select. Works with keyboard (↑ ↓ Enter Esc) and touch. */
@@ -160,7 +160,7 @@ export function LocationFields({
             id="country"
             value={country}
             onChange={(v) => onChange({ country: v, city: '' })}
-            options={(countries.data || []).map((c) => ({ value: c.code, label: `${c.flag} ${c.name}` }))}
+            options={(countries.data || []).map((c) => ({ value: c.code, label: countryLabel(c) }))}
             placeholder={countries.isLoading ? 'Loading countries…' : 'Select country'}
           />
         </div>

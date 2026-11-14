@@ -35,6 +35,10 @@ export interface Profile {
   sharedInterests: string[];
   distanceKm: number | null;
   activeRecently: boolean;
+  /** Connected right now, on the website or in the app. */
+  online?: boolean;
+  /** Joined in the last 7 days. */
+  isNew?: boolean;
   lastSeen: string;
 }
 

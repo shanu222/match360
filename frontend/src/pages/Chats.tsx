@@ -72,7 +72,7 @@ function ChatList({ activeId }: { activeId?: string }) {
               >
                 <div className="relative">
                   <Avatar src={m.user.photos[0]} name={m.user.name} className="h-14 w-14" />
-                  {m.user.activeRecently && <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-rule bg-right" />}
+                  {(m.user.online || m.user.activeRecently) && <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card bg-right" title="Online" />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
@@ -286,8 +286,8 @@ function Conversation({ matchId }: { matchId: string }) {
             <Avatar src={other.photos[0]} name={other.name} className="h-11 w-11" />
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 font-bold"><span className="truncate">{other.name}</span>{other.verified && <Verified size={16} />}</div>
-              <div className={clsx('text-xs', typing ? 'text-cobalt' : info.data?.online || other.activeRecently ? 'text-right' : 'text-slate')}>
-                {typing ? 'typing…' : info.data?.online || other.activeRecently ? 'Active now' : `Active ${timeAgo(other.lastSeen)} ago`}
+              <div className={clsx('text-xs', typing ? 'text-cobalt' : info.data?.online || other.online || other.activeRecently ? 'text-right' : 'text-slate')}>
+                {typing ? 'typing…' : info.data?.online || other.online || other.activeRecently ? 'Online' : `Active ${timeAgo(other.lastSeen)} ago`}
               </div>
             </div>
           </Link>

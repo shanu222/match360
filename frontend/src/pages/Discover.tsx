@@ -12,7 +12,7 @@ import { ChallengeIntro } from '../components/ChallengeIntro';
 import { Avatar, EmptyState, ErrorState, Modal, Spinner } from '../components/ui';
 import { Combobox } from '../components/LocationFields';
 import { AdSlot } from '../components/AdSlot';
-import { flagOf, getPosition, useCities, useCountries } from '../lib/geo';
+import { countryLabel as withFlag, flagOf, getPosition, useCities, useCountries } from '../lib/geo';
 import { useToast } from '../context/Toast';
 
 function CityPicker({ country, value, onChange }: { country: string; value: string; onChange: (v: string) => void }) {
@@ -36,6 +36,7 @@ export default function Discover() {
   const [city, setCity] = useState('');
   const [km, setKm] = useState(0);
   const [verified, setVerified] = useState(false);
+  const [online, setOnline] = useState(false);
   const [gone, setGone] = useState<string[]>([]);
   const [intro, setIntro] = useState<Profile | null>(null);
   const [filters, setFilters] = useState(false);
@@ -49,8 +50,9 @@ export default function Discover() {
     if (country && city) params.set('city', city);
   }
   if (verified) params.set('verified', '1');
-  const key = ['discover', intent, country, city, km, verified];
-  const q = useQuery({ queryKey: key, queryFn: () => api.get<{ profiles: Profile[] }>(`/discover?${params}`), staleTime: 60_000 });
+  if (online) params.set('online', '1');
+  const key = ['discover', intent, country, city, km, verified, online];
+  const q = useQuery({ queryKey: key, queryFn: () => api.get<{ profiles: Profile[]; onlineCount?: number }>(`/discover?${params}`), staleTime: 60_000 });
 
   const list = (q.data?.profiles || []).filter((p) => !gone.includes(p.id));
   const cur = list[0];
@@ -86,19 +88,26 @@ export default function Discover() {
     }
     setKm(50);
   };
-  const countryLabel = km ? `Within ${km} km` : country ? `${flagOf(countries.data, country)} ${countries.data?.find((c) => c.code === country)?.name || country}${city ? `, ${city}` : ''}` : 'Anywhere';
+  const countryLabel = km ? `Within ${km} km` : country ? `${flagOf(countries.data, country)} ${countries.data?.find((c) => c.code === country)?.name || country}${city ? `, ${city}` : ''}`.trim() : 'Anywhere';
+  const onlineCount = q.data?.onlineCount || 0;
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,460px)_1fr]">
       <div className="min-w-0">
-        <div className="scroll-none -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          <button onClick={() => setFilters(true)} className="chip"><SlidersHorizontal size={14} />{countryLabel}</button>
+        {/* Filters wrap onto more lines on narrow screens, so nothing is ever cut off or needs sideways scrolling. */}
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <button onClick={() => setFilters(true)} className="chip max-w-full"><SlidersHorizontal size={14} className="shrink-0" /><span className="truncate">{countryLabel}</span></button>
           <button onClick={nearMe} disabled={locating} className={clsx('chip', km > 0 && 'chip-on')}>{locating ? <Spinner size={14} /> : <LocateFixed size={14} />}Near me</button>
-          <button onClick={() => setVerified(!verified)} className={clsx('chip', verified && 'chip-on')}><BadgeCheck size={14} />Verified</button>
-          {['All', ...(meta.data?.intents || [])].map((i) => (
-            <button key={i} onClick={() => setIntent(i)} className={clsx('chip', intent === i && 'chip-on')}>{i}</button>
-          ))}
+          <button onClick={() => setVerified(!verified)} aria-pressed={verified} className={clsx('chip', verified && 'chip-on')}><BadgeCheck size={14} />Verified</button>
+          <button onClick={() => setOnline(!online)} aria-pressed={online} className={clsx('chip', online && 'chip-on')}><span className="h-2 w-2 rounded-full bg-right" />Online</button>
+          <select aria-label="Looking for" value={intent} onChange={(e) => setIntent(e.target.value)} className={clsx('chip max-w-full cursor-pointer py-[7px] pr-2 outline-none', intent !== 'All' && 'chip-on')}>
+            <option value="All">Looking for: anything</option>
+            {(meta.data?.intents || []).map((i) => <option key={i} value={i}>{i}</option>)}
+          </select>
         </div>
+        {onlineCount > 0 && (
+          <p className="mb-3 flex items-center gap-2 text-sm text-slate"><span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-right opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-right" /></span>{onlineCount === 1 ? '1 person is online now' : `${onlineCount.toLocaleString()} people are online now`}</p>
+        )}
 
         <Modal open={filters} onClose={() => setFilters(false)} title="Filters">
           <label className="label">Where</label>
@@ -116,7 +125,7 @@ export default function Discover() {
           ) : (
             <>
               <label className="label">Country</label>
-              <Combobox value={country} onChange={(v) => { setCountry(v); setCity(''); }} options={[{ value: '', label: 'Anywhere' }, ...(countries.data || []).map((c) => ({ value: c.code, label: `${c.flag} ${c.name}` }))]} placeholder="Anywhere" />
+              <Combobox value={country} onChange={(v) => { setCountry(v); setCity(''); }} options={[{ value: '', label: 'Anywhere' }, ...(countries.data || []).map((c) => ({ value: c.code, label: withFlag(c) }))]} placeholder="Anywhere" />
               {country && (
                 <>
                   <label className="label">City <span className="font-normal text-slate">(optional)</span></label>
