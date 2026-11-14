@@ -3,7 +3,7 @@ import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import {
-  BadgeCheck, BarChart3, Bot, CreditCard, Flag, LogOut, Megaphone, Search, Settings2, ShieldAlert, ScrollText, Users,
+  BadgeCheck, BarChart3, Bot, CreditCard, Crown, Flag, LogOut, Megaphone, Search, Settings2, ShieldAlert, ScrollText, Users,
 } from 'lucide-react';
 import { errMsg } from '../lib/api';
 import { adminApi, adminToken, setOnExpired } from './adminApi';
@@ -27,14 +27,22 @@ export default function AdminApp({ base }: { base: string }) {
     return () => meta.remove();
   }, []);
   if (!authed) return <Login onDone={() => setAuthed(true)} />;
+  return <Shell base={base} onSignOut={() => { adminToken.clear(); setAuthed(false); }} />;
+}
+
+function Shell({ base, onSignOut }: { base: string; onSignOut: () => void }) {
+  // The same numbers as the Overview page; refreshed every minute so new reports and payments show up on the menu.
+  const stats = useQuery({ queryKey: ['admin', 'stats'], queryFn: () => adminApi.get<any>('/stats'), refetchInterval: 60_000 });
+  const s = stats.data || {};
   const nav = [
-    ['', 'Overview', BarChart3],
-    ['users', 'Users', Users],
-    ['reports', 'Reports', Flag],
-    ['verifications', 'Verifications', BadgeCheck],
-    ['payments', 'Payments', CreditCard],
-    ['settings', 'Settings', Settings2],
-    ['audit', 'Activity log', ScrollText],
+    ['', 'Overview', BarChart3, 0],
+    ['users', 'Users', Users, 0],
+    ['reports', 'Reports', Flag, s.open_reports || 0],
+    ['verifications', 'Verifications', BadgeCheck, s.pending_verifications || 0],
+    ['payments', 'Direct payments', CreditCard, s.pending_payments || 0],
+    ['premium', 'Give Premium', Crown, 0],
+    ['settings', 'Settings', Settings2, 0],
+    ['audit', 'Activity log', ScrollText, 0],
   ] as const;
   return (
     <div className="min-h-dvh bg-paper lg:pl-60">
@@ -43,12 +51,13 @@ export default function AdminApp({ base }: { base: string }) {
           <LogoMark size={26} />
           <span className="font-display font-bold">Admin</span>
         </div>
-        {nav.map(([to, label, Icon]) => (
+        {nav.map(([to, label, Icon, count]) => (
           <NavLink key={to} end={to === ''} to={`${base}/${to}`} className={({ isActive }) => clsx('flex shrink-0 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium', isActive ? 'bg-white/15 text-white' : 'text-white/70 hover:bg-white/10 hover:text-white')}>
-            <Icon size={17} /> {label}
+            <Icon size={17} /> <span className="lg:flex-1">{label}</span>
+            {count > 0 && <span className="rounded-full bg-wrong px-1.5 py-0.5 text-[11px] font-bold leading-none text-white" aria-label={`${count} waiting`}>{count}</span>}
           </NavLink>
         ))}
-        <button onClick={() => { adminToken.clear(); setAuthed(false); }} className="flex shrink-0 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white lg:mt-auto">
+        <button onClick={onSignOut} className="flex shrink-0 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white lg:mt-auto">
           <LogOut size={17} /> Sign out
         </button>
       </aside>
@@ -60,6 +69,7 @@ export default function AdminApp({ base }: { base: string }) {
           <Route path="reports" element={<ReportsPage base={base} />} />
           <Route path="verifications" element={<VerificationsPage base={base} />} />
           <Route path="payments" element={<PaymentsPage base={base} />} />
+          <Route path="premium" element={<GivePremiumPage base={base} />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="audit" element={<AuditPage />} />
           <Route path="*" element={<Navigate to={base} replace />} />
@@ -128,20 +138,23 @@ function Loading({ q }: { q: { isLoading: boolean; isError: boolean; error: unkn
   if (q.isError) return <div className="py-12 text-center text-slate">{errMsg(q.error)} <button className="font-semibold text-cobalt underline" onClick={() => q.refetch()}>Retry</button></div>;
   return null;
 }
+const shortDate = (s: string | null) => (s ? new Date(s).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 const date = (s: string | null) => (s ? new Date(s).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—');
 const Badge = ({ tone, children }: { tone: 'ok' | 'bad' | 'warn' | 'plain'; children: ReactNode }) => (
   <span className={clsx('inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold', tone === 'ok' ? 'bg-right/10 text-right' : tone === 'bad' ? 'bg-wrong/10 text-wrong' : tone === 'warn' ? 'bg-marker/60 text-ink' : 'bg-rule text-slate')}>{children}</span>
 );
 
-function ReviewDialog({ open, title, onClose, onConfirm, busy, confirmLabel, danger }: { open: boolean; title: string; onClose: () => void; onConfirm: (note: string) => void; busy: boolean; confirmLabel: string; danger?: boolean }) {
+function ReviewDialog({ open, title, onClose, onConfirm, busy, confirmLabel, danger, required }: { open: boolean; title: string; onClose: () => void; onConfirm: (note: string) => void; busy: boolean; confirmLabel: string; danger?: boolean; required?: boolean }) {
   const [note, setNote] = useState('');
+  const missing = Boolean(required) && note.trim().length < 5;
   return (
     <Modal open={open} onClose={onClose} title={title}>
-      <label className="label" htmlFor="note">Note {danger ? '(sent to the user)' : '(optional)'}</label>
-      <textarea id="note" className="input min-h-[90px]" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} />
+      <label className="label" htmlFor="note">{required ? 'Reason (required, sent to the member)' : `Note ${danger ? '(sent to the member)' : '(optional)'}`}</label>
+      <textarea id="note" className="input min-h-[90px]" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} placeholder={required ? 'What should they correct?' : undefined} />
+      {missing && <p className="mt-1.5 text-xs text-slate">Write a short reason so the member knows what to fix.</p>}
       <div className="mt-5 grid grid-cols-2 gap-3">
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-        <button className={danger ? 'btn btn-danger' : 'btn btn-primary'} disabled={busy} onClick={() => onConfirm(note)}>{busy ? <Spinner size={18} /> : confirmLabel}</button>
+        <button className={danger ? 'btn btn-danger' : 'btn btn-primary'} disabled={busy || missing} onClick={() => onConfirm(note.trim())}>{busy ? <Spinner size={18} /> : confirmLabel}</button>
       </div>
     </Modal>
   );
@@ -158,19 +171,20 @@ function Overview({ base }: { base: string }) {
   const s = q.data;
   const max = Math.max(1, ...s.daily.map((d: any) => Math.max(d.signups, d.requests)));
   const tiles = [
-    ['Members', s.users, `${s.profiles} with complete profiles`],
+    ['Members', s.profiles, s.users - s.profiles > 0 ? `plus ${s.users - s.profiles} unfinished sign-up${s.users - s.profiles === 1 ? '' : 's'}` : 'all with complete profiles'],
     ['New in 24 hours', s.signups_24h, `${s.signups_7d} in 7 days`],
     ['Active in 24 hours', s.active_24h, ''],
     ['Connections', s.connections, `${s.requests} requests sent`],
-    ['Verified', s.verified, ''],
-    ['Premium', s.premium, `Rs ${Math.round(s.revenue_pkr).toLocaleString()} and $${s.revenue_usd.toFixed(2)} confirmed`],
+    ['Verified members', s.verified, ''],
+    ['Premium members', s.premium, `${s.premium_store} through Google Play, ${s.premium - s.premium_store} given or paid directly`],
+    ['Direct payments confirmed', `Rs ${Math.round(s.revenue_pkr).toLocaleString()}`, s.revenue_usd > 0 ? `and $${s.revenue_usd.toFixed(2)}. Google Play revenue is in RevenueCat` : 'Google Play revenue is in RevenueCat'],
     ['Challenges taken', s.challenges, `${s.ai_quizzes_7d} AI-written this week`],
     ['Messages', s.messages, ''],
   ];
   const queues = [
     ['Open reports', s.open_reports, 'reports', ShieldAlert],
     ['Verifications to review', s.pending_verifications, 'verifications', BadgeCheck],
-    ['Payments to confirm', s.pending_payments, 'payments', CreditCard],
+    ['Direct payments to confirm', s.pending_payments, 'payments', CreditCard],
   ] as const;
   return (
     <>
@@ -188,7 +202,7 @@ function Overview({ base }: { base: string }) {
         {tiles.map(([l, v, sub]) => (
           <div key={l as string} className="rounded-xl border border-rule bg-card p-4">
             <div className="text-sm text-slate">{l}</div>
-            <div className="mt-1 font-display text-3xl font-bold">{Number(v).toLocaleString()}</div>
+            <div className="mt-1 font-display text-3xl font-bold">{typeof v === 'number' ? v.toLocaleString() : v}</div>
             {sub && <div className="mt-1 text-xs text-slate">{sub}</div>}
           </div>
         ))}
@@ -279,8 +293,8 @@ function UsersPage({ base }: { base: string }) {
         {q.data && (
           <>
             <div className="overflow-x-auto rounded-xl border border-rule bg-card">
-              <table className="w-full min-w-[720px] text-left text-sm">
-                <thead className="border-b border-rule text-slate"><tr><th className="px-4 py-3 font-medium">Member</th><th className="px-4 py-3 font-medium">Location</th><th className="px-4 py-3 font-medium">Work</th><th className="px-4 py-3 font-medium">Status</th><th className="px-4 py-3 font-medium">Joined</th></tr></thead>
+              <table className="w-full min-w-[860px] text-left text-sm">
+                <thead className="border-b border-rule text-slate"><tr><th className="px-4 py-3 font-medium">Member</th><th className="px-4 py-3 font-medium">Location</th><th className="px-4 py-3 font-medium">Work</th><th className="px-4 py-3 font-medium">Premium</th><th className="px-4 py-3 font-medium">Status</th><th className="px-4 py-3 font-medium">Joined</th></tr></thead>
                 <tbody className="divide-y divide-rule">
                   {q.data.users.map((u) => (
                     <tr key={u.id} onClick={() => nav(`${base}/users/${u.id}`)} className="cursor-pointer hover:bg-paper">
@@ -288,18 +302,19 @@ function UsersPage({ base }: { base: string }) {
                         <div className="flex items-center gap-3">
                           <Avatar src={u.photos[0]} name={u.name || u.email} className="h-9 w-9" rounded="rounded-lg" />
                           <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 font-semibold">{u.name || 'No name yet'}{u.idVerified && <BadgeCheck size={14} className="text-cobalt" />}{u.premium && <Badge tone="warn">Premium</Badge>}</div>
+                            <div className="flex items-center gap-1.5 font-semibold">{u.name || <span className="font-normal italic text-slate">Unfinished sign-up</span>}{u.idVerified && <BadgeCheck size={14} className="text-cobalt" />}</div>
                             <div className="truncate text-slate">{u.email}</div>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3">{u.city ? `${u.city}, ${u.countryName}` : '—'}</td>
                       <td className="px-4 py-3">{u.job || '—'}</td>
-                      <td className="px-4 py-3"><Badge tone={statusTone(u.status)}>{u.status}</Badge> {!u.onboarded && <Badge tone="plain">incomplete</Badge>}</td>
+                      <td className="px-4 py-3">{u.premium ? <><Badge tone="warn">{u.premiumSource === 'Google Play' ? 'Google Play' : 'Given by team'}</Badge><div className="mt-0.5 text-xs text-slate">until {shortDate(u.premiumUntil)}</div></> : <span className="text-slate">—</span>}</td>
+                      <td className="px-4 py-3"><Badge tone={statusTone(u.status)}>{u.status}</Badge> {!u.onboarded && <Badge tone="plain">profile not finished</Badge>}</td>
                       <td className="px-4 py-3 text-slate">{date(u.createdAt)}</td>
                     </tr>
                   ))}
-                  {!q.data.users.length && <tr><td colSpan={5} className="px-4 py-10 text-center text-slate">No users found.</td></tr>}
+                  {!q.data.users.length && <tr><td colSpan={6} className="px-4 py-10 text-center text-slate">No users found.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -343,7 +358,7 @@ function UserDetail({ base }: { base: string }) {
     ['Work', [u.job, u.company, u.industry].filter(Boolean).join(', ') || '—'],
     ['Education', [u.educationLevel, u.education].filter(Boolean).join(', ') || '—'],
     ['Looking for', u.intent || '—'],
-    ['Premium', u.premium ? `Until ${date(u.premiumUntil)}` : 'No'],
+    ['Premium', u.premium ? `Until ${shortDate(u.premiumUntil)} (${u.premiumSource === 'Google Play' ? 'Google Play subscription' : 'given by the team or a confirmed direct payment'})` : 'No'],
     ['Activity', `${counts.sent} requests sent, ${counts.received} received, ${counts.connections} connections, ${counts.messages} messages, blocked by ${counts.blocked_by}`],
     ['Joined', date(u.createdAt)],
     ['User ID', <code className="text-xs">{u.id}</code>],
@@ -354,7 +369,7 @@ function UserDetail({ base }: { base: string }) {
       <div className="flex flex-wrap items-start gap-5">
         <Avatar src={u.photos[0]} name={u.name || u.email} className="h-20 w-20" />
         <div className="flex-1">
-          <h1 className="flex items-center gap-2 text-3xl font-bold">{u.name || 'No name yet'}{u.idVerified && <BadgeCheck className="text-cobalt" />}</h1>
+          <h1 className="flex items-center gap-2 text-3xl font-bold">{u.name || 'Unfinished sign-up'}{u.idVerified && <BadgeCheck className="text-cobalt" />}</h1>
           <div className="mt-1 flex flex-wrap gap-2"><Badge tone={statusTone(u.status)}>{u.status}</Badge>{u.statusReason && <span className="text-sm text-slate">{u.statusReason}</span>}</div>
         </div>
       </div>
@@ -368,8 +383,8 @@ function UserDetail({ base }: { base: string }) {
           <button className="btn btn-ghost px-3 py-2 text-sm" onClick={() => patch.mutate({ status: 'active', statusReason: '' })}>Restore account</button>
         )}
         <button className="btn btn-ghost px-3 py-2 text-sm" onClick={() => patch.mutate({ idVerified: !u.idVerified })}>{u.idVerified ? 'Remove verified badge' : 'Mark verified'}</button>
-        {([[30, '1 month'], [183, '6 months'], [365, '1 year']] as const).map(([days, label]) => (
-          <button key={days} className="btn btn-ghost px-3 py-2 text-sm" onClick={() => patch.mutate({ premiumDays: days })}>Give Premium: {label}</button>
+        {([[1, '1 month'], [6, '6 months'], [12, '1 year']] as const).map(([months, label]) => (
+          <button key={months} className="btn btn-ghost px-3 py-2 text-sm" disabled={patch.isPending} onClick={() => patch.mutate({ premiumMonths: months })}>Give Premium: {label}</button>
         ))}
         {u.premium && <button className="btn btn-ghost px-3 py-2 text-sm" onClick={() => patch.mutate({ removePremium: true })}>Remove Premium</button>}
         {u.photos.length > 0 && <button className="btn btn-ghost px-3 py-2 text-sm" onClick={() => patch.mutate({ hidePhotos: true })}>Remove photos</button>}
@@ -394,7 +409,7 @@ function UserDetail({ base }: { base: string }) {
             </div>
           </div>
           <div className="rounded-xl border border-rule bg-card p-4">
-            <h2 className="font-semibold">Payments</h2>
+            <h2 className="font-semibold">Direct payments</h2>
             <div className="mt-2 divide-y divide-rule text-sm">
               {payments.map((p: any) => <div key={p.id} className="py-2">{p.plan}, {p.currency} {Number(p.amount).toLocaleString()} via {p.method} <Badge tone={p.status === 'approved' ? 'ok' : p.status === 'rejected' ? 'bad' : 'warn'}>{p.status}</Badge></div>)}
               {!payments.length && <p className="py-2 text-slate">None</p>}
@@ -403,7 +418,7 @@ function UserDetail({ base }: { base: string }) {
           <div className="rounded-xl border border-rule bg-card p-4">
             <h2 className="font-semibold">Verification</h2>
             <div className="mt-2 divide-y divide-rule text-sm">
-              {verifications.map((v: any) => <div key={v.id} className="py-2">{v.doc_type} <Badge tone={v.status === 'approved' ? 'ok' : v.status === 'rejected' ? 'bad' : 'warn'}>{v.status}</Badge> <span className="text-slate">{date(v.created_at)}</span></div>)}
+              {verifications.map((v: any) => <div key={v.id} className="py-2">{v.doc_type} <Badge tone={v.status === 'approved' ? 'ok' : v.status === 'rejected' ? 'bad' : 'warn'}>{v.status}</Badge> <span className="text-slate">{date(v.created_at)}</span>{v.note && <div className="text-slate">Reason: {v.note}</div>}</div>)}
               {!verifications.length && <p className="py-2 text-slate">Not submitted</p>}
             </div>
           </div>
@@ -514,7 +529,7 @@ function VerificationsPage({ base }: { base: string }) {
         ))}
         {q.data && !q.data.verifications.length && <p className="py-12 text-center text-slate">Nothing {status}.</p>}
       </div>
-      <ReviewDialog open={Boolean(reject)} title="Reject verification" confirmLabel="Reject" danger busy={decide.isPending} onClose={() => setReject(null)} onConfirm={(note) => reject && decide.mutate({ id: reject, d: 'reject', note })} />
+      <ReviewDialog open={Boolean(reject)} title="Reject verification" confirmLabel="Reject" danger required busy={decide.isPending} onClose={() => setReject(null)} onConfirm={(note) => reject && decide.mutate({ id: reject, d: 'reject', note })} />
     </>
   );
 }
@@ -533,8 +548,8 @@ function PaymentsPage({ base }: { base: string }) {
   });
   return (
     <>
-      <Header title="Payments"><Tabs value={status} onChange={setStatus} options={['pending', 'approved', 'rejected']} /></Header>
-      <p className="-mt-3 mb-5 text-sm text-slate">Check each transaction ID against your Easypaisa, JazzCash or bank statement before approving. Approving adds the plan’s months to the member’s Premium.</p>
+      <Header title="Direct payments"><Tabs value={status} onChange={setStatus} options={['pending', 'approved', 'rejected']} /></Header>
+      <p className="-mt-3 mb-5 text-sm text-slate">Payments sent on the website by Easypaisa, JazzCash or bank transfer, mostly from iPhone and desktop members. You also get an email for each one, with the slip and a button to approve it. Check the transaction in your account before approving; approving adds the plan’s months to the member’s Premium. Google Play purchases are confirmed automatically and never appear here.</p>
       <Loading q={q} />
       <div className="space-y-3">
         {q.data?.payments.map((p) => (
@@ -556,7 +571,49 @@ function PaymentsPage({ base }: { base: string }) {
         ))}
         {q.data && !q.data.payments.length && <p className="py-12 text-center text-slate">No {status} payments.</p>}
       </div>
-      <ReviewDialog open={Boolean(reject)} title="Reject payment" confirmLabel="Reject" danger busy={decide.isPending} onClose={() => setReject(null)} onConfirm={(note) => reject && decide.mutate({ id: reject, d: 'reject', note })} />
+      <ReviewDialog open={Boolean(reject)} title="Reject payment" confirmLabel="Reject" danger required busy={decide.isPending} onClose={() => setReject(null)} onConfirm={(note) => reject && decide.mutate({ id: reject, d: 'reject', note })} />
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Give Premium                                                        */
+/* ------------------------------------------------------------------ */
+
+/** Gives Premium to a member by email address: for people who paid you directly, or anyone you want to reward. */
+function GivePremiumPage({ base }: { base: string }) {
+  const qc = useQueryClient();
+  const nav = useNavigate();
+  const [email, setEmail] = useState('');
+  const [months, setMonths] = useState<1 | 6 | 12>(1);
+  const [done, setDone] = useState<null | { user: { id: string; name: string; email: string }; premiumUntil: string }>(null);
+  const grant = useMutation({
+    mutationFn: () => adminApi.post<{ user: { id: string; name: string; email: string }; premiumUntil: string }>('/premium/grant', { email: email.trim(), months }),
+    onSuccess: (r) => { setDone(r); setEmail(''); qc.invalidateQueries({ queryKey: ['admin'] }); },
+  });
+  return (
+    <>
+      <Header title="Give Premium" />
+      <p className="-mt-3 mb-5 max-w-2xl text-sm text-slate">Type the email address the member signed up with, choose how long, and confirm. They get Premium straight away on the website and in the app, with an email and a notification. Google Play subscribers are handled automatically and don’t need this.</p>
+      <form onSubmit={(e) => { e.preventDefault(); setDone(null); grant.mutate(); }} className="max-w-xl rounded-xl border border-rule bg-card p-5">
+        <label className="label mt-0" htmlFor="gp-email">Member’s email address</label>
+        <input id="gp-email" className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@gmail.com" autoComplete="off" />
+        <div className="label">Length</div>
+        <div className="flex flex-wrap gap-2">
+          {([[1, '1 month'], [6, '6 months'], [12, '1 year']] as const).map(([m, label]) => (
+            <button type="button" key={m} onClick={() => setMonths(m)} className={clsx('chip px-4 py-2', months === m && 'chip-on')}>{label}</button>
+          ))}
+        </div>
+        {grant.isError && <p role="alert" className="mt-4 rounded-xl bg-wrong/10 px-4 py-3 text-sm text-wrong">{errMsg(grant.error)}</p>}
+        {done && (
+          <p role="status" className="mt-4 rounded-xl bg-right/10 px-4 py-3 text-sm">
+            <b>{done.user.name || done.user.email}</b> now has Premium until <b>{shortDate(done.premiumUntil)}</b>.{' '}
+            <button type="button" className="font-medium text-cobalt underline" onClick={() => nav(`${base}/users/${done.user.id}`)}>Open member</button>
+          </p>
+        )}
+        <button className="btn btn-primary mt-5" disabled={grant.isPending || !email.trim()}>{grant.isPending ? <Spinner size={18} className="text-white" /> : 'Give Premium'}</button>
+      </form>
+      <p className="mt-4 max-w-xl text-sm text-slate">To take Premium away, open the member under Users and choose Remove Premium. For a Google Play subscriber it returns at the next renewal unless the subscription is cancelled or refunded in Play Console.</p>
     </>
   );
 }
@@ -785,6 +842,32 @@ function LimitsSettings({ initial }: { initial: any }) {
   );
 }
 
+const ACTION_LABEL: Record<string, string> = {
+  login: 'Signed in', login_failed: 'Failed sign-in attempt', user_update: 'Changed a member', user_delete: 'Deleted a member', report_update: 'Handled a report',
+  verification_approve: 'Approved a verification', verification_reject: 'Rejected a verification', payment_approve: 'Approved a payment', payment_reject: 'Rejected a payment',
+  premium_grant: 'Gave Premium', settings_update: 'Changed settings', ai_check: 'Checked AI keys',
+};
+/** Turns the stored details of a log entry into a short sentence. */
+function auditSummary(a: any): string {
+  const d = a.details || {};
+  const parts: string[] = [];
+  if (a.action === 'user_update') {
+    if (d.status) parts.push(d.status === 'active' ? 'restored the account' : `${d.status} the account${d.statusReason ? ` (${d.statusReason})` : ''}`);
+    if (d.idVerified !== undefined) parts.push(d.idVerified ? 'marked as verified' : 'removed the verified badge');
+    if (d.premiumMonths) parts.push(`gave Premium for ${d.premiumMonths} month${d.premiumMonths === 1 ? '' : 's'}`);
+    if (d.premiumDays) parts.push(`gave Premium for ${d.premiumDays} days`);
+    if (d.removePremium) parts.push('removed Premium');
+    if (d.hidePhotos) parts.push('removed photos');
+  } else if (a.action === 'premium_grant') parts.push(`${d.months} month${d.months === 1 ? '' : 's'}`);
+  else if (a.action === 'report_update') parts.push(`report ${a.target} marked ${d.status}`);
+  else if (a.action.startsWith('payment_')) parts.push(`${d.currency === 'USD' ? '$' : 'Rs '}${Number(d.amount || 0).toLocaleString()}, transaction ${d.reference || ''}${d.via ? `, from the ${d.via}` : ''}`);
+  else if (a.action === 'verification_reject' && d.note) parts.push(`reason: ${d.note}`);
+  else if (a.action === 'user_delete') parts.push(`${d.name || ''} ${d.email || ''}`.trim());
+  else if (a.action === 'settings_update') parts.push(String(a.target || ''));
+  else if (a.action === 'ai_check') parts.push(`${d.ok} of ${d.total} working`);
+  return parts.join(', ');
+}
+
 function AuditPage() {
   const q = useQuery({ queryKey: ['admin', 'audit'], queryFn: () => adminApi.get<{ audit: any[] }>('/audit') });
   return (
@@ -793,10 +876,10 @@ function AuditPage() {
       <Loading q={q} />
       <div className="overflow-x-auto rounded-xl border border-rule bg-card">
         <table className="w-full min-w-[600px] text-left text-sm">
-          <thead className="border-b border-rule text-slate"><tr><th className="px-4 py-2.5 font-medium">When</th><th className="px-4 py-2.5 font-medium">Action</th><th className="px-4 py-2.5 font-medium">Target</th><th className="px-4 py-2.5 font-medium">IP</th></tr></thead>
+          <thead className="border-b border-rule text-slate"><tr><th className="px-4 py-2.5 font-medium">When</th><th className="px-4 py-2.5 font-medium">Action</th><th className="px-4 py-2.5 font-medium">Member and details</th><th className="px-4 py-2.5 font-medium">IP</th></tr></thead>
           <tbody className="divide-y divide-rule">
             {q.data?.audit.map((a) => (
-              <tr key={a.id}><td className="px-4 py-2.5 text-slate">{date(a.created_at)}</td><td className="px-4 py-2.5">{a.action.replace(/_/g, ' ')}</td><td className="px-4 py-2.5"><code className="text-xs">{a.target || ''}</code></td><td className="px-4 py-2.5 text-slate">{a.ip}</td></tr>
+              <tr key={a.id}><td className="whitespace-nowrap px-4 py-2.5 text-slate">{date(a.created_at)}</td><td className="px-4 py-2.5 font-medium">{ACTION_LABEL[a.action] || a.action.replace(/_/g, ' ')}</td><td className="px-4 py-2.5">{a.target_name || a.target_email ? <><span className="font-medium">{a.target_name || 'Unfinished sign-up'}</span> <span className="text-slate">{a.target_email}</span></> : null}{auditSummary(a) && <div className="text-slate">{auditSummary(a)}</div>}</td><td className="px-4 py-2.5 text-slate">{a.ip}</td></tr>
             ))}
           </tbody>
         </table>

@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { PLAY_STORE_URL } from '../native/billing';
 import { Link } from 'react-router';
 import clsx from 'clsx';
-import { Check, Eye, Lock, MessageCircle, ShieldCheck, SlidersHorizontal, X } from 'lucide-react';
+import { Check, Eye, Lock, MessageCircle, ShieldCheck, SlidersHorizontal, X, Smartphone } from 'lucide-react';
 import { Logo } from '../components/Logo';
 
 /* A sample question so visitors feel the product in five seconds. The person is fictional. */
@@ -106,6 +107,12 @@ export default function Landing() {
             <Link to="/login" className="btn btn-ghost px-6 py-3.5 text-base">Sign in</Link>
           </div>
           <p className="mt-4 text-sm text-slate">Free to join. For adults 18 and over.</p>
+          <div className="mt-7 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <a href={PLAY_STORE_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2.5 rounded-xl bg-ink px-5 py-3 font-semibold text-white hover:opacity-90">
+              <Smartphone size={18} /> Get the Android app on Google Play
+            </a>
+            <span className="text-sm text-slate">iPhone app coming soon. Use the website on iPhone for now.</span>
+          </div>
         </div>
         <QuestionCard />
       </section>
@@ -144,7 +151,10 @@ export default function Landing() {
       <section className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
         <div className="flex flex-col items-start justify-between gap-6 rounded-2xl bg-ink px-7 py-10 text-white sm:flex-row sm:items-center sm:px-10">
           <h2 className="max-w-[20ch] text-3xl font-bold leading-tight">Be known before you say hello.</h2>
-          <Link to="/signup" className="btn shrink-0 bg-marker px-6 py-3.5 text-base text-ink hover:brightness-95">Create your profile</Link>
+          <div className="flex shrink-0 flex-col gap-3 sm:items-end">
+            <Link to="/signup" className="btn bg-marker px-6 py-3.5 text-base text-ink hover:brightness-95">Create your profile</Link>
+            <a href={PLAY_STORE_URL} target="_blank" rel="noreferrer" className="text-sm font-medium text-white/80 underline hover:text-white">Download the Android app. iPhone app coming soon.</a>
+          </div>
         </div>
       </section>
 

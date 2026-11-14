@@ -51,8 +51,10 @@ export const config = {
     logging: process.env.AI_LOGGING !== 'false',
   },
   r2Private: process.env.R2_PRIVATE_BUCKET || '',
-  // Direct payments on the website (Easypaisa, JazzCash, bank). Off: Premium is sold through Google Play only.
-  directPayments: process.env.DIRECT_PAYMENTS === '1',
+  // Where the team is told about new reports, verification requests and direct payments. Defaults to the admin sign-in email.
+  adminNotifyEmail: (process.env.ADMIN_NOTIFY_EMAIL || process.env.ADMIN_EMAIL || '').trim(),
+  // Full address of the admin panel (optional), used for the buttons in those emails.
+  adminPanelUrl: (process.env.ADMIN_PANEL_URL || '').trim().replace(/\/$/, ''),
   revenuecat: {
     // Google Play purchases made in the Android app (see routes/billing.ts).
     webhookAuth: (process.env.REVENUECAT_WEBHOOK_AUTH || '').trim(),

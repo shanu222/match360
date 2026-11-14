@@ -6,9 +6,10 @@ import {
   CHILDREN, DRINKING, EDUCATION_LEVELS, GENDERS, INDUSTRIES, INTENTS, INTERESTED_IN, INTERESTS, MARITAL, PROMPT_QUESTIONS, RELIGIONS, SMOKING,
 } from '../catalog.js';
 import { ageFrom, isComplete, isPremium, missingFields, privateProfile, publicProfile, type UserRow } from '../profiles.js';
-import { ALLOWED_TYPES, MAX_UPLOAD_BYTES, deletePhotos, deletePrivate, isOwnPhotoUrl, isOwnPrivateKey, putPhoto, putPrivate, signPhotoUpload, signPrivateUpload, sniffImage } from '../storage.js';
+import { ALLOWED_TYPES, MAX_UPLOAD_BYTES, deletePhotos, deletePrivate, getPrivateBytes, isOwnPhotoUrl, isOwnPrivateKey, putPhoto, putPrivate, signPhotoUpload, signPrivateUpload, sniffImage } from '../storage.js';
 import express from 'express';
-import { config, r2Enabled } from '../config.js';
+import { r2Enabled } from '../config.js';
+import { reviewQuery } from '../premium.js';
 import { actionLink, clearStatusCache, deleteFirebaseUser, forgetUser } from '../auth.js';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { citiesOf, countries, countryName, isCityOf, isCountry, nearestCity } from '../geo.js';
@@ -123,8 +124,8 @@ account.get('/config', async (req, res) => {
   const [plans, methods, ads, limits] = await Promise.all([getSetting('plans'), getSetting('paymentMethods'), getSetting('ads'), getSetting('limits')]);
   res.json({
     plans,
-    // Premium is sold only in the Android app through Google Play, so no direct payment details are sent out.
-    paymentMethods: [] as typeof methods,
+    // Shown on the website only (the Android app sells Premium through Google Play and never displays these).
+    paymentMethods: methods.filter((m) => m.enabled),
     ads: { enabled: ads.enabled, adsenseClient: ads.adsenseClient, slotDiscover: ads.slotDiscover, slotChats: ads.slotChats },
     limits,
     premium: u ? isPremium(u) : false,
@@ -433,13 +434,20 @@ export const REPORT_REASONS = ['Fake profile or scam', 'Inappropriate messages',
 const reportSchema = z.object({
   userId: z.string().min(1).max(128),
   reason: z.enum(REPORT_REASONS),
-  details: z.string().trim().max(1000).default(''),
+  details: z.string().trim().min(10, 'tell us briefly what happened (at least 10 characters)').max(1000),
   block: z.boolean().default(true),
 });
 account.post('/reports', async (req, res) => {
   const s = parse(reportSchema, req.body);
   if (s.userId === req.user.uid) throw bad('You cannot report yourself');
   await q('INSERT INTO reports (reporter_id, reported_id, reason, details) VALUES ($1,$2,$3,$4)', [req.user.uid, s.userId, s.reason, s.details]);
+  void q<{ reported: string; reported_email: string; reporter: string; total: number }>(
+    `SELECT b.name AS reported, b.email AS reported_email, a.name AS reporter, (SELECT count(*) FROM reports x WHERE x.reported_id=$2)::int AS total
+     FROM users a LEFT JOIN users b ON b.id=$2 WHERE a.id=$1`,
+    [req.user.uid, s.userId],
+  )
+    .then((r) => r.rows[0] && emails.adminReport({ reported: r.rows[0].reported || '', reportedEmail: r.rows[0].reported_email || 'deleted account', reporter: r.rows[0].reporter || 'a member', reason: s.reason, details: s.details, total: r.rows[0].total }))
+    .catch(() => {});
   if (s.block && !(await isBlocked(req.user.uid, s.userId))) {
     await q('INSERT INTO blocks (blocker_id, blocked_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [req.user.uid, s.userId]);
     await closeBetween(req.user.uid, s.userId);
@@ -478,6 +486,7 @@ account.post('/verification', async (req, res) => {
   const pending = await q(`SELECT 1 FROM verifications WHERE user_id=$1 AND status='pending'`, [u.id]);
   if (pending.rowCount) throw conflict('Your documents are already being reviewed', 'pending');
   await q('INSERT INTO verifications (user_id, doc_type, doc_key, selfie_key) VALUES ($1,$2,$3,$4)', [u.id, s.docType, s.docKey, s.selfieKey]);
+  emails.adminVerification({ member: u.name, email: u.email, docType: s.docType });
   res.json({ ok: true });
 });
 
@@ -494,8 +503,6 @@ const paySchema = z.object({
   proofKey: z.string().max(300).optional(),
 });
 account.post('/payments', async (req, res) => {
-  // Direct payments (Easypaisa, JazzCash, bank) were retired when Premium moved to Google Play.
-  if (!config.directPayments) throw new HttpError(410, 'Premium is now bought in the Match360 Android app through Google Play.', 'direct_payments_closed');
   const u = await me(req);
   const s = parse(paySchema, req.body);
   const [plans, methods] = await Promise.all([getSetting('plans'), getSetting('paymentMethods')]);
@@ -506,15 +513,27 @@ account.post('/payments', async (req, res) => {
   const pending = await q(`SELECT count(*)::int AS n FROM payments WHERE user_id=$1 AND status='pending'`, [u.id]);
   if (pending.rows[0].n >= 3) throw conflict('You already have payments waiting for review', 'too_many_pending');
   const amount = method.currency === 'USD' ? plan.priceUSD : plan.pricePKR;
+  let id: string;
   try {
-    await q(
-      `INSERT INTO payments (user_id, plan, months, amount, currency, method, reference, sender, proof_key) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [u.id, plan.name, plan.months, amount, method.currency, method.name, s.reference, s.sender, s.proofKey || null],
-    );
+    id = (
+      await q<{ id: string }>(
+        `INSERT INTO payments (user_id, plan, months, amount, currency, method, reference, sender, proof_key) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+        [u.id, plan.name, plan.months, amount, method.currency, method.name, s.reference, s.sender, s.proofKey || null],
+      )
+    ).rows[0].id;
   } catch (e: any) {
     if (e?.code === '23505') throw conflict('This transaction ID has already been submitted', 'duplicate_reference');
     throw e;
   }
+  // Tell the team by email, with the slip and a link to approve or reject. Never delays the member's response.
+  const reviewUrl = `${req.protocol}://${req.get('host')}/api/review/payment/${id}?${reviewQuery(id)}`;
+  void getPrivateBytes(s.proofKey).then((slip) =>
+    emails.adminPayment(
+      { member: u.name, email: u.email, plan: plan.name, amount: method.currency === 'USD' ? `$${amount.toFixed(2)}` : `Rs ${Math.round(amount).toLocaleString('en-US')}`, method: method.name, reference: s.reference, sender: s.sender },
+      reviewUrl,
+      slip,
+    ),
+  );
   res.json({ ok: true });
 });
 

@@ -179,3 +179,18 @@ Configuration:
 RevenueCat: entitlement `premium`, with the Play subscription products attached, and a `default` offering with one package per plan. Webhook URL: `https://<backend host>/api/webhooks/revenuecat`.
 
 Play Console: subscription products for Match360 with an active base plan each; licence testers under Settings > Licence testing; "Purchase history" added to Data safety (collected, not shared, app functionality, required for buyers).
+
+## Premium for iPhone and desktop members (website only)
+
+Until there is an iOS app, the website's Premium page asks where the member uses Match360:
+
+- **Android phone**: sends them to the Play Store app, where Premium is bought through Google Play.
+- **iPhone or computer**: they pay by Easypaisa, JazzCash or bank transfer and upload the payment slip.
+
+The Android app never shows the second option (Google Play rule); that code is removed from the Android build.
+
+When a slip is sent, the team gets an email at `ADMIN_NOTIFY_EMAIL` (defaults to `ADMIN_EMAIL`) with the slip image and a **Review and approve** button. The button opens a page on the backend (`/api/review/payment/<id>`, signed link, valid 14 days) where the payment is approved or rejected without signing in to the admin panel. Opening the link changes nothing; a button press is required. The same decision can be made in the admin panel under Direct payments.
+
+The team is also emailed for each new report and each verification request. Set `ADMIN_PANEL_URL` on the backend to the full admin panel address to get an "Open in admin" button in those emails.
+
+The admin panel has a **Give Premium** page: enter the member's email, choose 1 month, 6 months or 1 year, and confirm.

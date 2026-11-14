@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { Check, ExternalLink, Smartphone } from 'lucide-react';
+import { Check, Copy, ExternalLink, ImagePlus, Smartphone } from 'lucide-react';
 import { api, errMsg } from '../lib/api';
 import { useConfig } from '../lib/config';
-import type { Payment, Plan } from '../lib/types';
+import { prepareImage } from '../lib/image';
+import { uploadBlob } from '../lib/upload';
+import type { Payment, PaymentMethod, Plan } from '../lib/types';
 import { useToast } from '../context/Toast';
 import { useAuth } from '../context/AuthContext';
 import { ErrorState, FullScreenLoader, Spinner } from '../components/ui';
@@ -16,12 +18,12 @@ const money = (n: number, c: string) => (c === 'USD' ? `$${n.toFixed(2)}` : `Rs 
 const longDate = (d: string) => new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
 
 /**
- * Premium is sold in one place only: the Android app, through Google Play. The website shows the same plans
- * and sends people to the app; Premium bought there (or given by an admin) works everywhere with the same account.
+ * Android users buy Premium in the app through Google Play. Until the iOS app is out, iPhone and desktop users pay
+ * directly on the website and the team confirms the slip. Either way Premium belongs to the account and works everywhere.
  */
 export default function PremiumPage() {
   const cfg = useConfig();
-  // Payments made directly before Premium moved to Google Play are still listed on the website.
+  // Direct payments (website only) and their status.
   const payments = useQuery({ queryKey: ['payments'], queryFn: () => api.get<{ payments: Payment[] }>('/payments'), enabled: !isAndroidApp });
 
   if (cfg.isLoading) return <FullScreenLoader />;
@@ -56,12 +58,12 @@ export default function PremiumPage() {
           !c.premium && <p className="mt-8 rounded-xl border border-rule bg-card p-4 text-sm text-slate">Premium can’t be purchased in the app yet. If your account already has Premium, it is active here automatically.</p>
         )
       ) : (
-        <GetTheApp premium={c.premium} plans={c.plans} />
+        <WebPremium premium={c.premium} plans={c.plans} methods={c.paymentMethods} pending={payments.data?.payments.filter((p) => p.status === 'pending').length || 0} />
       )}
 
       {!isAndroidApp && payments.data && payments.data.payments.length > 0 && (
         <>
-          <h2 className="mt-10 text-xl font-bold">Your earlier payments</h2>
+          <h2 className="mt-10 text-xl font-bold">Your payments</h2>
           <div className="mt-4 divide-y divide-rule rounded-xl border border-rule bg-card">
             {payments.data.payments.map((p) => (
               <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
@@ -84,40 +86,160 @@ export default function PremiumPage() {
   );
 }
 
-/** Website: the same plans as the app, and the way to get them. Nothing is sold on the website itself. */
-function GetTheApp({ premium, plans }: { premium: boolean; plans: Plan[] }) {
+const onApple = () => typeof navigator !== 'undefined' && /iphone|ipad|ipod|macintosh/i.test(navigator.userAgent);
+
+/**
+ * Website only. Members choose where they use Match360:
+ *  - Android: Premium is bought in the app through Google Play.
+ *  - iPhone: the iOS app is not out yet, so they pay directly (Easypaisa, JazzCash or bank transfer) and send the
+ *    slip here. The team gets an email with the slip and confirms it; Premium then works with the same account.
+ * None of this is ever shown inside the Android app (Google Play rule), where the page sells through Play only.
+ */
+function WebPremium({ premium, plans, methods, pending }: { premium: boolean; plans: Plan[]; methods: PaymentMethod[]; pending: number }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [device, setDevice] = useState<'android' | 'ios'>(onApple() ? 'ios' : 'android');
+  const [planId, setPlanId] = useState('');
+  const [methodId, setMethodId] = useState('');
+  const [reference, setReference] = useState('');
+  const [sender, setSender] = useState('');
+  const [slip, setSlip] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const plan = plans.find((p) => p.id === planId) || plans.find((p) => p.highlight) || plans[0];
+  const method = methods.find((m) => m.id === methodId) || methods[0];
+  const ios = device === 'ios';
+
+  const copy = (v: string) => navigator.clipboard?.writeText(v).then(() => toast({ title: 'Copied', tone: 'success' })).catch(() => {});
+
+  const submit = async () => {
+    setErr('');
+    if (!plan || !method) return;
+    if (reference.trim().length < 4) return setErr('Enter the transaction ID from your payment receipt.');
+    if (!slip) return setErr('Attach a screenshot or photo of the payment slip.');
+    setBusy(true);
+    try {
+      const proofKey = (await uploadBlob('proof', await prepareImage(slip, 1600, 0.85))).key;
+      await api.post('/payments', { planId: plan.id, methodId: method.id, reference: reference.trim(), sender: sender.trim(), proofKey });
+      setReference('');
+      setSender('');
+      setSlip(null);
+      qc.invalidateQueries({ queryKey: ['payments'] });
+      toast({ title: 'Payment sent for confirmation', body: 'We’ll check it and switch Premium on, usually within a few hours. You’ll get an email and a notification here.', tone: 'success' });
+    } catch (e) {
+      setErr(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="mt-10">
-      <h2 className="text-xl font-bold">Plans</h2>
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        {plans.map((p) => (
-          <div key={p.id} className={clsx('rounded-xl border-2 bg-card p-4', p.highlight ? 'border-cobalt' : 'border-rule')}>
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-semibold">{p.name}</span>
-              {p.highlight && <span className="shrink-0 whitespace-nowrap rounded-md bg-marker px-2 py-0.5 text-xs font-semibold">Best value</span>}
-            </div>
-            <div className="mt-2 font-display text-2xl font-bold">{money(p.pricePKR, 'PKR')}</div>
-            <div className="text-sm text-slate">about {money(p.priceUSD, 'USD')} outside Pakistan</div>
-          </div>
+      <h2 className="text-xl font-bold">{premium ? 'Extend Premium' : 'Get Premium'}</h2>
+      <p className="mt-1 text-slate">Where do you use Match360?</p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {([['android', 'Android phone', 'Buy in the app with Google Play'], ['ios', 'iPhone or computer', 'iOS app coming soon. Pay by Easypaisa, JazzCash or bank']] as const).map(([id, title, sub]) => (
+          <button key={id} onClick={() => setDevice(id)} aria-pressed={device === id} className={clsx('flex items-start gap-3 rounded-xl border-2 bg-card p-4 text-left transition-colors', device === id ? 'border-cobalt' : 'border-rule hover:border-slate/40')}>
+            <Smartphone size={22} className="mt-0.5 shrink-0 text-cobalt" />
+            <span><span className="block font-semibold">{title}</span><span className="block text-sm text-slate">{sub}</span></span>
+          </button>
         ))}
       </div>
-      <p className="mt-3 text-sm text-slate">Google Play shows the exact price in your currency before you pay, and it can differ slightly from the prices here.</p>
 
-      <div className="mt-8 rounded-xl border border-rule bg-card p-5">
-        <div className="flex items-start gap-3">
-          <Smartphone size={22} className="mt-0.5 shrink-0 text-cobalt" />
-          <div>
-            <h2 className="text-lg font-bold">{premium ? 'Manage Premium in the Android app' : 'Get Premium in the Android app'}</h2>
-            <p className="mt-1 text-slate">Premium is bought through Google Play in the Match360 app. It then works here on the website too, with the same account.</p>
-          </div>
-        </div>
-        <ol className="mt-4 list-decimal space-y-1.5 pl-5 text-slate">
-          <li>Install Match360 from Google Play on your Android phone.</li>
-          <li>Sign in with the same account you use here.</li>
-          <li>Open Settings, then Premium, and choose a plan.</li>
-        </ol>
-        <a href={PLAY_STORE_URL} target="_blank" rel="noreferrer" className="btn btn-primary mt-5 w-full sm:w-auto">Get Match360 on Google Play <ExternalLink size={16} /></a>
+      <h3 className="mt-8 font-semibold">{ios ? '1. Choose a plan' : 'Plans'}</h3>
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        {plans.map((p) => {
+          const body = (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold">{p.name}</span>
+                {p.highlight && <span className="shrink-0 whitespace-nowrap rounded-md bg-marker px-2 py-0.5 text-xs font-semibold">Best value</span>}
+              </div>
+              <div className="mt-2 font-display text-2xl font-bold">{money(p.pricePKR, 'PKR')}</div>
+              <div className="text-sm text-slate">about {money(p.priceUSD, 'USD')} outside Pakistan</div>
+            </>
+          );
+          return ios ? (
+            <button key={p.id} onClick={() => setPlanId(p.id)} aria-pressed={plan?.id === p.id} className={clsx('rounded-xl border-2 bg-card p-4 text-left transition-colors', plan?.id === p.id ? 'border-cobalt' : 'border-rule hover:border-slate/40')}>{body}</button>
+          ) : (
+            <div key={p.id} className={clsx('rounded-xl border-2 bg-card p-4', p.highlight ? 'border-cobalt' : 'border-rule')}>{body}</div>
+          );
+        })}
       </div>
+
+      {!ios && (
+        <div className="mt-6 rounded-xl border border-rule bg-card p-5">
+          <h3 className="text-lg font-bold">Buy in the Android app</h3>
+          <p className="mt-1 text-slate">Premium is bought through Google Play in the Match360 app, and works here on the website too with the same account. Google Play shows the exact price in your currency before you pay.</p>
+          <ol className="mt-4 list-decimal space-y-1.5 pl-5 text-slate">
+            <li>Install Match360 from Google Play on your Android phone.</li>
+            <li>Sign in with the same account you use here.</li>
+            <li>Open Settings, then Premium, and choose a plan.</li>
+          </ol>
+          <a href={PLAY_STORE_URL} target="_blank" rel="noreferrer" className="btn btn-primary mt-5 w-full sm:w-auto">Get Match360 on Google Play <ExternalLink size={16} /></a>
+        </div>
+      )}
+
+      {ios && (
+        <>
+          <p className="mt-4 rounded-xl bg-cobalt-soft px-4 py-3 text-sm">The Match360 iPhone app is coming soon. Until then, pay directly below and use Premium on this website; it will carry over to the iPhone app with the same account.</p>
+          {methods.length === 0 || !plan ? (
+            <p className="mt-6 rounded-xl border border-rule bg-card p-4 text-sm text-slate">Direct payment isn’t available right now. Please contact support and we’ll help you get Premium.</p>
+          ) : (
+            <>
+              <h3 className="mt-8 font-semibold">2. Pay</h3>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {methods.map((m) => <button key={m.id} onClick={() => setMethodId(m.id)} className={clsx('chip px-4 py-2', method?.id === m.id && 'chip-on')}>{m.name}</button>)}
+              </div>
+              {method && (
+                <div className="mt-4 rounded-xl border border-rule bg-card p-5">
+                  <div className="flex items-baseline justify-between gap-4">
+                    <span className="text-slate">Amount to pay</span>
+                    <span className="font-display text-2xl font-bold">{money(method.currency === 'USD' ? plan.priceUSD : plan.pricePKR, method.currency)}</span>
+                  </div>
+                  <p className="mt-3 text-sm text-slate">{method.instructions}</p>
+                  {method.details.length > 0 && (
+                    <dl className="mt-4 divide-y divide-rule rounded-lg border border-rule">
+                      {method.details.map((d) => (
+                        <div key={d.label} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                          <dt className="text-sm text-slate">{d.label}</dt>
+                          <dd className="flex items-center gap-2 font-semibold">
+                            {d.value}
+                            <button onClick={() => copy(d.value)} aria-label={`Copy ${d.label}`} className="rounded-md p-1 text-slate hover:bg-paper hover:text-ink"><Copy size={14} /></button>
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                  {method.link && <a href={method.link} target="_blank" rel="noreferrer" className="btn btn-primary mt-4">Open payment page <ExternalLink size={16} /></a>}
+                </div>
+              )}
+
+              <h3 className="mt-8 font-semibold">3. Send us the slip</h3>
+              <div className="mt-3 rounded-xl border border-rule bg-card p-5">
+                <div className="grid gap-x-3 sm:grid-cols-2">
+                  <div>
+                    <label className="label mt-0" htmlFor="ref">Transaction ID</label>
+                    <input id="ref" className="input" value={reference} onChange={(e) => setReference(e.target.value)} maxLength={80} placeholder="From your receipt or SMS" />
+                  </div>
+                  <div>
+                    <label className="label mt-5 sm:mt-0" htmlFor="sender">Sender name or number <span className="font-normal text-slate">(optional)</span></label>
+                    <input id="sender" className="input" value={sender} onChange={(e) => setSender(e.target.value)} maxLength={80} />
+                  </div>
+                </div>
+                <label className={clsx('mt-4 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed p-3 text-sm hover:border-cobalt', slip ? 'border-cobalt' : 'border-rule')}>
+                  <ImagePlus size={18} className="shrink-0 text-cobalt" />
+                  <span className="min-w-0 truncate">{slip ? slip.name : 'Attach a screenshot or photo of the payment slip'}</span>
+                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => setSlip(e.target.files?.[0] || null)} />
+                </label>
+                {err && <p role="alert" className="mt-4 rounded-xl bg-wrong/10 px-4 py-3 text-sm text-wrong">{err}</p>}
+                <button onClick={submit} disabled={busy} className="btn btn-primary mt-5 w-full sm:w-auto">{busy ? <Spinner size={18} className="text-white" /> : 'Send for confirmation'}</button>
+                <p className="mt-3 text-sm text-slate">{pending > 0 ? 'Your payment is being checked. You’ll get an email and a notification here when Premium is on.' : 'We check each payment by hand, usually within a few hours.'}</p>
+              </div>
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 }

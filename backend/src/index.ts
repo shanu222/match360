@@ -13,6 +13,7 @@ import { account, citiesHandler, countriesHandler, metaHandler, resetHandler, re
 import { admin, adminEnabled } from './routes/admin.js';
 import { social } from './routes/social.js';
 import { billing, revenuecatWebhook } from './routes/billing.js';
+import { review } from './routes/review.js';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -52,6 +53,8 @@ app.use('/api/admin', (req, res, next) => {
   res.set('X-Robots-Tag', 'noindex');
   next();
 }, admin);
+// Review page for a direct payment, opened from the team's notification email (signed link, see routes/review.ts).
+app.use('/api', review);
 // Called by RevenueCat (Google Play purchases); authenticated by its own shared secret, not a user token.
 app.post('/api/webhooks/revenuecat', revenuecatWebhook);
 app.use('/api', requireAuth, account, social, billing);

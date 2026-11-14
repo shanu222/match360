@@ -14,6 +14,8 @@ import { ageFrom, isPremium, privateProfile, type UserRow } from '../profiles.js
 import { checkProviders, generateAIQuiz } from '../ai.js';
 import { quizFacts } from '../quiz.js';
 import { countryName } from '../geo.js';
+import { decidePayment, grantPremium } from '../premium.js';
+import { notify } from '../realtime.js';
 
 export const admin = Router();
 export const adminEnabled = () => Boolean(config.admin.email && config.admin.password.length >= 8);
@@ -91,6 +93,7 @@ admin.get('/stats', async (_req, res) => {
     (SELECT count(*) FROM users WHERE last_seen > now() - interval '24 hours')::int AS active_24h,
     (SELECT count(*) FROM users WHERE id_verified)::int AS verified,
     (SELECT count(*) FROM users WHERE premium_until > now())::int AS premium,
+    (SELECT count(*) FROM users WHERE premium_until > now() AND store_premium_until > now())::int AS premium_store,
     (SELECT count(*) FROM users WHERE status <> 'active')::int AS suspended,
     (SELECT count(*) FROM requests WHERE status='accepted')::int AS connections,
     (SELECT count(*) FROM requests)::int AS requests,
@@ -112,7 +115,10 @@ admin.get('/stats', async (_req, res) => {
 
 /* ---------------- users ---------------- */
 function adminUser(u: UserRow) {
-  return { ...privateProfile(u), countryName: countryName(u.country), idVerified: u.id_verified, statusReason: u.status_reason, premium: isPremium(u), age: ageFrom(u.dob) };
+  const premium = isPremium(u);
+  // Where the current Premium comes from: an active Google Play subscription, or the team (admin grant or a confirmed direct payment).
+  const premiumSource = !premium ? null : u.store_premium_until && new Date(u.store_premium_until).getTime() > Date.now() ? 'Google Play' : 'Team';
+  return { ...privateProfile(u), countryName: countryName(u.country), idVerified: u.id_verified, statusReason: u.status_reason, premium, premiumSource, age: ageFrom(u.dob) };
 }
 admin.get('/users', async (req, res) => {
   const term = String(req.query.q || '').trim();
@@ -156,6 +162,7 @@ const userPatch = z.object({
   statusReason: z.string().max(300).optional(),
   idVerified: z.boolean().optional(),
   premiumDays: z.number().int().min(-3650).max(3650).optional(),
+  premiumMonths: z.number().int().min(1).max(36).optional(),
   removePremium: z.boolean().optional(),
   hidePhotos: z.boolean().optional(),
 });
@@ -171,6 +178,7 @@ admin.patch('/users/:id', async (req, res) => {
   }
   if (p.idVerified !== undefined) await q('UPDATE users SET id_verified=$2 WHERE id=$1', [id, p.idVerified]);
   if (p.premiumDays) await q(`UPDATE users SET premium_until = greatest(coalesce(premium_until, now()), now()) + make_interval(days => $2) WHERE id=$1`, [id, p.premiumDays]);
+  if (p.premiumMonths) await grantPremium(id, p.premiumMonths);
   if (p.removePremium) await q('UPDATE users SET premium_until=NULL WHERE id=$1', [id]);
   if (p.hidePhotos) {
     await q(`UPDATE users SET photos='{}', photos_blurred='{}' WHERE id=$1`, [id]);
@@ -194,6 +202,17 @@ admin.delete('/users/:id', async (req, res) => {
   await deleteFirebaseUser(id);
   await audit(req, 'user_delete', id, { email: u.email, name: u.name });
   res.json({ ok: true });
+});
+
+/** Give Premium to a member by email address, for people who can't buy through Google Play. */
+admin.post('/premium/grant', async (req, res) => {
+  const p = parse(z.object({ email: z.string().trim().toLowerCase().min(3).max(200), months: z.number().int().min(1).max(36) }), req.body);
+  const found = await q<UserRow>('SELECT * FROM users WHERE lower(email)=$1 ORDER BY onboarded DESC, created_at ASC', [p.email]);
+  if (!found.rows.length) throw notFound('No member has signed up with that email address. Ask them to create an account first, then try again.');
+  const u = found.rows[0];
+  const until = await grantPremium(u.id, p.months);
+  await audit(req, 'premium_grant', u.id, { months: p.months });
+  res.json({ ok: true, user: { id: u.id, name: u.name, email: u.email }, premiumUntil: until });
 });
 
 /* ---------------- reports ---------------- */
@@ -238,8 +257,9 @@ admin.post('/verifications/:id/:decision', async (req, res) => {
   const id = param(req, 'id');
   const decision = param(req, 'decision');
   if (!isUuid(id) || !['approve', 'reject'].includes(decision)) throw notFound();
-  const { note } = parse(z.object({ note: z.string().max(300).default('') }), req.body);
+  const { note } = parse(z.object({ note: z.string().trim().max(300).default('') }), req.body);
   const approved = decision === 'approve';
+  if (!approved && note.length < 5) throw bad('Write the reason, so the member knows what to correct');
   const v = await tx(async (c) => {
     const row = (await c.query(`UPDATE verifications SET status=$2, note=$3, reviewed_at=now() WHERE id=$1 AND status='pending' RETURNING *`, [id, approved ? 'approved' : 'rejected', note])).rows[0];
     if (!row) throw bad('This request was already reviewed');
@@ -247,6 +267,7 @@ admin.post('/verifications/:id/:decision', async (req, res) => {
     return row;
   });
   emails.verification(v.user_id, approved, note);
+  void notify(v.user_id, 'verification', approved ? 'Your identity was confirmed. Your profile now shows the verified badge.' : `We couldn’t verify your profile: ${note} Tap to correct it and submit again.`);
   await audit(req, `verification_${decision}`, v.user_id, { note });
   res.json({ ok: true });
 });
@@ -267,21 +288,7 @@ admin.post('/payments/:id/:decision', async (req, res) => {
   if (!isUuid(id) || !['approve', 'reject'].includes(decision)) throw notFound();
   const { note } = parse(z.object({ note: z.string().max(300).default('') }), req.body);
   const approved = decision === 'approve';
-  const out = await tx(async (c) => {
-    const p = (await c.query(`UPDATE payments SET status=$2, note=$3, reviewed_at=now() WHERE id=$1 AND status='pending' RETURNING *`, [id, approved ? 'approved' : 'rejected', note])).rows[0];
-    if (!p) throw bad('This payment was already reviewed');
-    let until: Date | null = null;
-    if (approved && p.user_id) {
-      until = (
-        await c.query(
-          `UPDATE users SET premium_until = greatest(coalesce(premium_until, now()), now()) + make_interval(months => $2) WHERE id=$1 RETURNING premium_until`,
-          [p.user_id, p.months],
-        )
-      ).rows[0]?.premium_until;
-    }
-    return { p, until };
-  });
-  if (out.p.user_id) emails.payment(out.p.user_id, approved, out.p.plan, out.until, note);
+  const out = await decidePayment(id, approved, note);
   await audit(req, `payment_${decision}`, out.p.user_id, { amount: Number(out.p.amount), currency: out.p.currency, reference: out.p.reference });
   res.json({ ok: true });
 });
@@ -368,6 +375,8 @@ admin.get('/health', async (_req, res) => {
 });
 
 admin.get('/audit', async (_req, res) => {
-  const r = await q('SELECT * FROM admin_audit ORDER BY id DESC LIMIT 200');
+  const r = await q(
+    `SELECT a.*, u.name AS target_name, u.email AS target_email FROM admin_audit a LEFT JOIN users u ON u.id = a.target ORDER BY a.id DESC LIMIT 200`,
+  );
   res.json({ audit: r.rows });
 });
