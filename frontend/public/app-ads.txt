@@ -1,0 +1,2 @@
+# This file must also be served from https://sustainablesolution360.com/app-ads.txt (the developer website on your Play listing).
+google.com, pub-3753880887983252, DIRECT, f08c47fec0942fa0

@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 import { Logo } from '../components/Logo';
+import { isAndroidApp } from '../lib/platform';
 
 const COMPANY = 'Resilience Technologies Labs (SMC-Private) Limited, trading as Sustainable Solution 360';
 const EMAIL = 'shahnawaz@sustainablesolution360.com';
@@ -134,11 +135,18 @@ const DOCS: Record<Kind, Doc> = {
   },
 };
 
+/** In the Android app, purchases can only go through Google Play, so text about other payment methods is left out. */
+const OFF_STORE = /Easypaisa|JazzCash/i;
+function forPlatform(d: Doc): Doc {
+  if (!isAndroidApp) return d;
+  return { ...d, sections: d.sections.map(([h, paras]) => [h, paras.filter((t) => !OFF_STORE.test(t))] as [string, string[]]).filter(([, paras]) => paras.length > 0) };
+}
+
 export default function Legal({ kind }: { kind: Kind }) {
-  const d = DOCS[kind];
+  const d = forPlatform(DOCS[kind]);
   return (
     <div className="min-h-dvh bg-paper">
-      <div className="mx-auto max-w-2xl px-5 py-10">
+      <div className="mx-auto max-w-2xl px-5 pb-[calc(2.5rem+env(safe-area-inset-bottom))] pt-[calc(2.5rem+env(safe-area-inset-top))]">
         <Link to="/"><Logo /></Link>
         <h1 className="mt-10 text-4xl font-bold">{d.title}</h1>
         <p className="mt-2 text-sm text-slate">Last updated {UPDATED}</p>

@@ -5,6 +5,7 @@ import { auth, testAuthEnabled } from '../lib/firebase';
 import { api, ApiError } from '../lib/api';
 import { connectSocket, disconnectSocket } from '../lib/socket';
 import type { MeResponse } from '../lib/types';
+import { isAndroidApp } from '../lib/platform';
 
 type Status = 'loading' | 'signedOut' | 'signedIn';
 interface Ctx {
@@ -29,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Completes a Google sign-in that used the redirect flow.
   useEffect(() => {
-    if (!auth) return;
+    if (!auth || isAndroidApp) return; // the app signs in natively, never by redirect
     getRedirectResult(auth).catch((e) => setRedirectError(e?.code || 'auth/unknown'));
   }, []);
 
@@ -103,8 +104,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refetchMe: () => void meQ.refetch(),
       signOut: async () => {
         disconnectSocket();
+        if (isAndroidApp) await import('../native/billing').then((m) => m.signOutBilling()).catch(() => {});
         localStorage.removeItem('m360_test_token');
         if (auth) await fbSignOut(auth).catch(() => {});
+        if (isAndroidApp) await import('../native/googleSignIn').then((m) => m.nativeSignOut()).catch(() => {});
         qc.clear();
         setStatus('signedOut');
       },

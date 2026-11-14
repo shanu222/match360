@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { Logo } from '../components/Logo';
 import { Spinner } from '../components/ui';
+import { isAndroidApp } from '../lib/platform';
 
 type Mode = 'login' | 'signup' | 'reset';
 
@@ -80,6 +81,18 @@ export default function Auth({ mode }: { mode: Mode }) {
     if (!auth) return;
     setErr('');
     setBusy(true);
+    if (isAndroidApp) {
+      // Google blocks sign-in inside WebViews: use the native account picker instead.
+      try {
+        const { nativeGoogleSignIn } = await import('../native/googleSignIn');
+        if (await nativeGoogleSignIn()) nav('/discover');
+      } catch (e: any) {
+        setErr(friendlyAuthError(e?.code));
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     try {
       if (preferRedirect()) {
         await signInWithRedirect(auth, googleProvider);
@@ -122,7 +135,7 @@ export default function Auth({ mode }: { mode: Mode }) {
           <div className="mt-7 rounded-2xl border border-rule bg-card p-6 shadow-pop sm:p-7">
             {!firebaseConfigured && !testAuthEnabled ? (
               <div className="rounded-xl border border-marker bg-marker/30 p-4 text-sm">
-                Sign-in isn’t configured. Add the <code>VITE_FIREBASE_*</code> variables in Vercel and redeploy.
+                Sign-in isn’t configured. {isAndroidApp ? 'Please update the app and try again.' : <>Add the <code>VITE_FIREBASE_*</code> variables in Vercel and redeploy.</>}
               </div>
             ) : sent ? (
               <div className="flex items-start gap-3 rounded-xl border border-right/40 bg-right/10 p-4 text-sm">

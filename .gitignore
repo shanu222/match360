@@ -4,3 +4,10 @@ dist
 .env.local
 .DS_Store
 *.log
+
+# Android app
+.env.android
+*.jks
+*.keystore
+keystore.properties
+google-services.json

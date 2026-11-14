@@ -1,0 +1,89 @@
+apply plugin: 'com.android.application'
+
+// ---- Version: edit android/version.properties, or run `npm run android:version` to bump it ----
+def versionProps = new Properties()
+file('../version.properties').withInputStream { versionProps.load(it) }
+
+// ---- Release signing: android/keystore.properties (never committed) ----
+def keystoreProps = new Properties()
+def keystoreFile = rootProject.file('keystore.properties')
+def hasKeystore = keystoreFile.exists()
+if (hasKeystore) keystoreFile.withInputStream { keystoreProps.load(it) }
+
+// ---- AdMob App ID: VITE_ADMOB_APP_ID in frontend/.env.android; Google's test App ID when it is empty ----
+def admobTestAppId = 'ca-app-pub-3940256099942544~3347511713'
+def envProps = new Properties()
+def envFile = rootProject.file('../.env.android')
+if (envFile.exists()) envFile.withInputStream { envProps.load(it) }
+def admobAppId = (envProps.getProperty('VITE_ADMOB_APP_ID') ?: '').trim()
+if (!(admobAppId ==~ /ca-app-pub-\d+~\d+/)) admobAppId = admobTestAppId
+
+android {
+    namespace = "com.sustainablesolution360.match360"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.sustainablesolution360.match360"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode versionProps.getProperty('versionCode').toInteger()
+        versionName versionProps.getProperty('versionName')
+        manifestPlaceholders = [admobAppId: admobAppId]
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        release {
+            if (hasKeystore) {
+                storeFile file(keystoreProps.getProperty('storeFile'))
+                storePassword keystoreProps.getProperty('storePassword')
+                keyAlias keystoreProps.getProperty('keyAlias')
+                keyPassword keystoreProps.getProperty('keyPassword')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (hasKeystore) signingConfig signingConfigs.release
+        }
+    }
+    bundle {
+        language {
+            // Keep every language in the base APK (the web UI is not split by language).
+            enableSplit = false
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+// Firebase (native Google sign-in) needs android/app/google-services.json from the Firebase console.
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+} else {
+    logger.warn("WARNING: android/app/google-services.json is missing. The app builds, but Google sign-in will not work.")
+}

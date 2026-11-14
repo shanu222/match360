@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { sendEmailVerification } from 'firebase/auth';
-import { BadgeCheck, ChevronRight, Crown, LocateFixed, LogOut, Mail, Trash2 } from 'lucide-react';
+import { BadgeCheck, ChevronRight, Crown, LocateFixed, LogOut, Mail, ShieldCheck, Trash2 } from 'lucide-react';
 import { getPosition } from '../lib/geo';
 import { useConfig } from '../lib/config';
 import { api, errMsg } from '../lib/api';
@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/Toast';
 import { Avatar, FullScreenLoader, Modal, Spinner, Toggle } from '../components/ui';
 import { Link } from 'react-router';
+import { isAndroidApp } from '../lib/platform';
 
 export default function SettingsPage() {
   const { me, fbUser, signOut, refetchMe, refreshEmailStatus } = useAuth();
@@ -112,7 +113,7 @@ export default function SettingsPage() {
           <Crown size={20} className="text-cobalt" />
           <div className="flex-1">
             <div className="font-semibold">Premium</div>
-            <div className="text-sm text-slate">{cfg.data?.premium ? `Active until ${new Date(cfg.data.premiumUntil!).toLocaleDateString()}` : 'Remove ads and connect with more people'}</div>
+            <div className="text-sm text-slate">{cfg.data?.premium ? `Active until ${new Date(cfg.data.premiumUntil!).toLocaleDateString()}` : isAndroidApp ? 'See what Premium includes' : 'Remove ads and connect with more people'}</div>
           </div>
           <ChevronRight size={18} className="text-slate" />
         </Link>
@@ -202,12 +203,40 @@ export default function SettingsPage() {
       </section>
 
       <section className="card divide-y divide-rule px-5">
+        <div className="py-4 font-bold">Legal and safety</div>
+        {([
+          ['/privacy', 'Privacy Policy'],
+          ['/terms', 'Terms of Use'],
+          ['/guidelines', 'Community Guidelines'],
+          ['/safety', 'Safety Tips'],
+          ['/child-safety', 'Child Safety Standards'],
+          ...(isAndroidApp ? [] : [['/refunds', 'Refund Policy']]),
+          ['/delete-account', 'How to delete your account'],
+        ] as [string, string][]).map(([to, label]) => (
+          <Link key={to} to={to} className="flex items-center justify-between py-3.5 text-[15px] font-medium">
+            {label} <ChevronRight size={18} className="text-slate" />
+          </Link>
+        ))}
+        {isAndroidApp && (
+          <button
+            className="flex w-full items-center justify-between py-3.5 text-left text-[15px] font-medium"
+            onClick={async () => {
+              const { openPrivacyChoices } = await import('../native/ads');
+              if (!(await openPrivacyChoices())) toast({ title: 'No choices to make here', body: 'Ad privacy choices aren’t required in your region. See the Privacy Policy for how ads work.' });
+            }}
+          >
+            <span className="flex items-center gap-2.5"><ShieldCheck size={18} className="text-cobalt" /> Privacy choices</span>
+            <ChevronRight size={18} className="text-slate" />
+          </button>
+        )}
+      </section>
+
+      <section className="card divide-y divide-rule px-5">
         <button onClick={signOut} className="flex w-full items-center gap-3 py-4 font-semibold hover:text-ink"><LogOut size={18} /> Sign out</button>
         <button onClick={() => setDel(true)} className="flex w-full items-center gap-3 py-4 font-semibold text-wrong"><Trash2 size={18} /> Delete account</button>
       </section>
       <p className="pb-6 text-center text-xs leading-relaxed text-slate">
-        <Link to="/guidelines" className="hover:text-ink">Community guidelines</Link> · <Link to="/safety" className="hover:text-ink">Safety</Link> · <Link to="/refunds" className="hover:text-ink">Refunds</Link> ·{' '}
-        <Link to="/privacy" className="hover:text-ink">Privacy</Link> · <Link to="/terms" className="hover:text-ink">Terms</Link> · Match360 v1.0
+        Questions? <a href="mailto:shahnawaz@sustainablesolution360.com" className="underline hover:text-ink">Contact support</a> · Match360 v{__APP_VERSION__}
       </p>
 
       <Modal open={del} onClose={() => setDel(false)} title="Delete your account?">

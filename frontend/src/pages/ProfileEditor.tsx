@@ -392,7 +392,7 @@ function Editor({ mode, user, meta, defaultName, onSignOut }: { mode: 'onboardin
 
       {err && <p role="alert" className="mt-6 rounded-xl bg-wrong/10 px-4 py-3 text-sm text-wrong">{err}</p>}
 
-      <div className={clsx('fixed inset-x-0 bottom-0 z-20 border-t border-rule bg-paper/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 backdrop-blur', mode === 'edit' && 'lg:left-72')}>
+      <div className={clsx('hide-on-keyboard fixed inset-x-0 bottom-0 z-20 border-t border-rule bg-paper/95 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 backdrop-blur', mode === 'edit' && 'lg:left-72')}>
         <div className="mx-auto max-w-2xl">
           <button onClick={next} disabled={saving} className="btn btn-primary w-full py-3.5 text-base">
             {saving ? <Spinner className="text-white" size={20} /> : step < STEPS.length - 1 ? 'Continue' : mode === 'onboarding' ? 'Finish profile' : 'Save changes'}

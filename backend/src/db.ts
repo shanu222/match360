@@ -163,6 +163,8 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'
 ALTER TABLE users ADD COLUMN IF NOT EXISTS status_reason TEXT NOT NULL DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS premium_until TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS welcomed BOOLEAN NOT NULL DEFAULT FALSE;
+-- Premium end date reported by the app store (Google Play via RevenueCat); premium_until is the effective date.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS store_premium_until TIMESTAMPTZ;
 ALTER TABLE reports ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'open';
 ALTER TABLE reports ADD COLUMN IF NOT EXISTS admin_note TEXT NOT NULL DEFAULT '';
 ALTER TABLE reports ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;
@@ -223,6 +225,16 @@ CREATE TABLE IF NOT EXISTS profile_views (
   PRIMARY KEY (viewer_id, viewed_id)
 );
 CREATE INDEX IF NOT EXISTS profile_views_viewed_idx ON profile_views (viewed_id, viewed_at DESC);
+
+CREATE TABLE IF NOT EXISTS store_events (
+  id TEXT PRIMARY KEY,
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  type TEXT NOT NULL,
+  product TEXT NOT NULL DEFAULT '',
+  environment TEXT NOT NULL DEFAULT '',
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 CREATE TABLE IF NOT EXISTS email_log (
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

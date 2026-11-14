@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import { Logo } from './Logo';
 import { Avatar, Modal, Spinner } from './ui';
 import { Realtime } from './Realtime';
+import { AdBanner } from './AdBanner';
 
 const NAV = [
   { to: '/discover', label: 'Discover', icon: Compass, count: null as null | keyof Counts },
@@ -45,6 +46,7 @@ export function AppShell() {
   return (
     <div className="min-h-dvh lg:pl-72">
       <Realtime myId={user.id} />
+      <AdBanner premium={Boolean(user.premium)} />
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 flex-col border-r border-rule bg-card px-5 py-6 backdrop-blur lg:flex">
         <NavLink to="/discover" className="px-2">
@@ -107,13 +109,13 @@ export function AppShell() {
         </header>
       )}
 
-      <main className={clsx('mx-auto w-full max-w-5xl', inChat ? 'lg:px-10 lg:pb-12 lg:pt-10' : 'px-4 pb-28 pt-4 sm:px-6 lg:px-10 lg:pb-12 lg:pt-10')}>
+      <main className={clsx('mx-auto w-full max-w-5xl', inChat ? 'lg:px-10 lg:pb-12 lg:pt-10' : 'px-4 pb-[calc(7rem+var(--ad-h,0px))] pt-4 sm:px-6 lg:px-10 lg:pb-[calc(3rem+var(--ad-h,0px))] lg:pt-10')}>
         <Outlet />
       </main>
 
       {/* Mobile tab bar */}
       {!inChat && (
-        <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-rule bg-paper/90 px-2 pb-[calc(.6rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden">
+        <nav id="tabbar" className="hide-on-keyboard fixed inset-x-0 bottom-0 z-30 flex border-t border-rule bg-paper/90 px-2 pb-[calc(.6rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden">
           {NAV.map(({ to, label, icon: Icon, count }) => (
             <NavLink key={to} to={to} className={({ isActive }) => clsx('relative flex flex-1 flex-col items-center gap-1 py-1 text-[11px] font-semibold', isActive ? 'text-ink' : 'text-slate')}>
               {({ isActive }) => (

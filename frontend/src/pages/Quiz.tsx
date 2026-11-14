@@ -7,6 +7,7 @@ import { api, ApiError, errMsg } from '../lib/api';
 import type { Profile, QuizResult, QuizStart } from '../lib/types';
 import { useToast } from '../context/Toast';
 import { Avatar, Modal, ScoreStamp, Spinner } from '../components/ui';
+import { isAndroidApp } from '../lib/platform';
 import { LogoMark } from '../components/Logo';
 
 type Phase =
@@ -49,6 +50,19 @@ export default function Quiz() {
   const qc = useQueryClient();
   const [phase, setPhase] = useState<Phase>({ k: 'loading' });
   const started = useRef(false);
+
+  // Android app: leaving a finished set of questions is a natural break for an interstitial (free members only,
+  // rate-limited in native/ads.ts). Never while answering, and not when the next screen is a chat.
+  const finished = useRef(false);
+  useEffect(() => {
+    if (phase.k === 'result' || phase.k === 'sent') finished.current = true;
+  }, [phase.k]);
+  useEffect(
+    () => () => {
+      if (isAndroidApp && finished.current && !window.location.pathname.startsWith('/chats/')) void import('../native/ads').then((a) => a.maybeShowInterstitial());
+    },
+    [],
+  );
 
   const fetchResult = useCallback(async (attemptId: string, answers: number[], target: QuizStart['target'] | null) => {
     const res = await api.post<QuizResult>(`/quiz/${attemptId}/submit`, { answers });
@@ -174,6 +188,16 @@ function Runner({ quiz, onDone }: { quiz: QuizStart; onDone: (answers: number[])
   const done = useRef(false);
   const offset = useRef(new Date(quiz.serverNow).getTime() - Date.now());
   const deadline = new Date(quiz.expiresAt).getTime() - 3000;
+
+  // Android back button: ask before leaving a timed quiz instead of navigating away.
+  useEffect(() => {
+    const onBack = (e: Event) => {
+      e.preventDefault();
+      setLeave(true);
+    };
+    window.addEventListener('m360:back', onBack);
+    return () => window.removeEventListener('m360:back', onBack);
+  }, []);
 
   const finish = useCallback(
     (a: number[]) => {

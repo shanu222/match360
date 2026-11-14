@@ -7,6 +7,8 @@ import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import App from './App';
+import { OfflineGate } from './components/OfflineGate';
+import { isAndroidApp } from './lib/platform';
 import '@fontsource-variable/bricolage-grotesque/opsz.css';
 import '@fontsource-variable/figtree';
 import './index.css';
@@ -22,6 +24,10 @@ const queryClient = new QueryClient({
   },
 });
 
+// Tells the boot fallback in index.html that the bundle loaded and ran.
+(window as unknown as { __m360Booted?: boolean }).__m360Booted = true;
+if (isAndroidApp) void import('./native/init').then((m) => m.initNative()).catch((e) => console.warn('[native] init failed', e));
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
@@ -29,7 +35,9 @@ createRoot(document.getElementById('root')!).render(
         <BrowserRouter>
           <ToastProvider>
             <AuthProvider>
-              <App />
+              <OfflineGate>
+                <App />
+              </OfflineGate>
             </AuthProvider>
           </ToastProvider>
         </BrowserRouter>

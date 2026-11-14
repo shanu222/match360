@@ -5,6 +5,7 @@ import { ApiError } from './lib/api';
 import { AppShell } from './components/AppShell';
 import { FullScreenLoader } from './components/ui';
 import { LogoMark } from './components/Logo';
+import { isAndroidApp } from './lib/platform';
 import Landing from './pages/Landing';
 import Auth from './pages/Auth';
 
@@ -20,8 +21,9 @@ const SettingsPage = lazy(() => import('./pages/Settings'));
 const Legal = lazy(() => import('./pages/Legal'));
 const VerifyPage = lazy(() => import('./pages/Verify'));
 const PremiumPage = lazy(() => import('./pages/Premium'));
-const AdminApp = lazy(() => import('./admin/AdminApp'));
-const ADMIN_PATH = (import.meta.env.VITE_ADMIN_PATH || '').replace(/^\/+|\/+$/g, '');
+// The admin panel is web-only: in the Android build this branch is removed at compile time, so no admin code ships in the app.
+const AdminApp = isAndroidApp ? null : lazy(() => import('./admin/AdminApp'));
+const ADMIN_PATH = isAndroidApp ? '' : (import.meta.env.VITE_ADMIN_PATH || '').replace(/^\/+|\/+$/g, '');
 
 function Splash() {
   return (
@@ -67,7 +69,7 @@ export default function App() {
   return (
     <Suspense fallback={<FullScreenLoader />}>
       <Routes>
-        <Route path="/" element={<PublicOnly><Landing /></PublicOnly>} />
+        <Route path="/" element={<PublicOnly>{isAndroidApp ? <Navigate to="/login" replace /> : <Landing />}</PublicOnly>} />
         <Route path="/login" element={<PublicOnly><Auth mode="login" /></PublicOnly>} />
         <Route path="/signup" element={<PublicOnly><Auth mode="signup" /></PublicOnly>} />
         <Route path="/reset" element={<Auth mode="reset" />} />
@@ -78,7 +80,7 @@ export default function App() {
         <Route path="/child-safety" element={<Legal kind="child-safety" />} />
         <Route path="/refunds" element={<Legal kind="refunds" />} />
         <Route path="/delete-account" element={<Legal kind="delete-account" />} />
-        {ADMIN_PATH.length >= 6 && <Route path={`/${ADMIN_PATH}/*`} element={<AdminApp base={`/${ADMIN_PATH}`} />} />}
+        {AdminApp && ADMIN_PATH.length >= 6 && <Route path={`/${ADMIN_PATH}/*`} element={<AdminApp base={`/${ADMIN_PATH}`} />} />}
         <Route path="/onboarding" element={<Private allowIncomplete><OnboardingGate /></Private>} />
         <Route path="/connect/:id" element={<Private><Quiz /></Private>} />
         <Route path="/challenge/:id" element={<Private><Quiz /></Private>} />
