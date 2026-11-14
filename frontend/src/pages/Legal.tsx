@@ -19,7 +19,8 @@ const DOCS: Record<Kind, Doc> = {
         'Profile details: name, date of birth, gender, who you want to see, country, city, hometown, job title, workplace, industry, education, languages, interests, bio, written prompt answers, and optional details such as height, marital status, children, religion, smoking and drinking.',
         'Photos you choose to upload, and a blurred copy of each that we create on your device.',
         'Identity verification documents and a selfie, if you choose to verify.',
-        'Payment confirmations you submit: plan, payment method, transaction ID, sender name or number, and an optional receipt screenshot.',
+        'Purchase records: the Premium plan you bought and its renewal or expiry dates, which we receive from Google Play through our purchases provider, RevenueCat. We never see your card or payment details.',
+        'For direct payments made before Premium moved to Google Play (Easypaisa, JazzCash or bank transfer): plan, payment method, transaction ID, sender name or number, and an optional receipt screenshot.',
         'Messages you send, your answers to profile questions and results, reports and blocks.',
       ]],
       ['Information collected automatically', [
@@ -68,9 +69,9 @@ const DOCS: Record<Kind, Doc> = {
       ['Your content', ['You own what you post. You give us a worldwide, non-exclusive, royalty-free licence to host, display and process it to operate and improve Match360. Do not post anything you do not have the right to share.']],
       ['Conduct', ['Follow our Community Guidelines. We may remove content, limit features, suspend or permanently ban accounts that break these terms, at our discretion and without notice where safety requires it.']],
       ['Premium and payments', [
-        'Premium is a paid subscription for a fixed period. Prices are shown before you pay. Payments made by Easypaisa, JazzCash, bank transfer or card link are activated after we confirm them.',
-        'In apps downloaded from an app store, subscriptions are sold through that store’s billing system and its terms also apply.',
-        'Premium does not renew automatically unless you buy it through an app store subscription. See our Refund Policy.',
+        'Premium is a paid subscription. It is sold in the Match360 Android app through Google Play, and the price is shown before you pay. Premium works on the website and in the app with the same account.',
+        'Subscriptions bought through Google Play are billed by Google and its terms also apply. They renew automatically until you cancel in Google Play.',
+        'Premium given to an account by our team does not renew. See our Refund Policy.',
       ]],
       ['Ads', ['Free accounts may see ads provided by third parties. Premium removes ads.']],
       ['Safety disclaimer', ['We do not run criminal background checks. Verification confirms an identity document only. You are responsible for your interactions with other members. Read our Safety Tips before meeting anyone.']],
@@ -116,11 +117,10 @@ const DOCS: Record<Kind, Doc> = {
     title: 'Refund Policy',
     intro: 'We want you to be happy with Premium. Here is how refunds work.',
     sections: [
-      ['Payments we could not confirm', ['If we cannot match your Easypaisa, JazzCash, bank or card payment, contact us with your receipt and we will either activate Premium or return the money to the account it came from.']],
-      ['Change of mind', [`You can request a full refund within 7 days of activation if you have not used Premium features heavily. Email ${EMAIL} with your transaction ID.`]],
-      ['App store purchases', ['Purchases made through Google Play or the App Store are refunded under that store’s policy. Request them from the store.']],
+      ['Google Play purchases', [`Premium is bought through Google Play, and refunds follow Google Play’s policy. Request a refund in Google Play, or email ${EMAIL} and we will help.`]],
+      ['Earlier direct payments', [`If you paid by Easypaisa, JazzCash or bank transfer before Premium moved to Google Play and we could not confirm it, email ${EMAIL} with your receipt and we will either activate Premium or return the money to the account it came from.`]],
       ['Removed accounts', ['Accounts removed for breaking our Terms or Community Guidelines are not eligible for refunds.']],
-      ['Timing', ['Approved refunds are sent within 10 business days to the original payment account.']],
+      ['Timing', ['Refunds we approve ourselves are sent within 10 business days to the original payment account. Google Play refunds follow Google’s own timing.']],
     ],
   },
   'delete-account': {
