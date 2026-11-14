@@ -72,6 +72,37 @@ async function send(userId: string, subject: string, html: string, throttleKey?:
 
 const p = (t: string) => `<p>${t}</p>`;
 
+/* ---------- Emails to the team (new report, verification request, direct payment) ---------- */
+function adminLayout(title: string, bodyHtml: string, cta?: { text: string; url: string }) {
+  return `<!DOCTYPE html><html><body style="margin:0;background:#F5F6FA;font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#101935">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 12px"><tr><td align="center">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #DDE1EC">
+    <tr><td style="padding:18px 28px;background:#101935;color:#ffffff;font-size:16px;font-weight:700">Match360 admin</td></tr>
+    <tr><td style="padding:28px">
+      <h1 style="margin:0 0 14px;font-size:20px;line-height:1.3">${esc(title)}</h1>
+      <div style="font-size:15px;line-height:1.6;color:#101935">${bodyHtml}</div>
+      ${cta ? `<a href="${cta.url}" style="display:inline-block;margin-top:22px;background:#2541D8;color:#fff;text-decoration:none;font-weight:600;padding:13px 24px;border-radius:10px">${esc(cta.text)}</a>` : ''}
+    </td></tr>
+    <tr><td style="padding:16px 28px;border-top:1px solid #eee;font-size:12px;color:#5B6380">Sent to the Match360 team address. Change it with the ADMIN_NOTIFY_EMAIL variable on the server.</td></tr>
+  </table></td></tr></table></body></html>`;
+}
+const rows = (pairs: [string, string][]) =>
+  `<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:14px">${pairs
+    .filter(([, v]) => v)
+    .map(([k, v]) => `<tr><td style="padding:7px 12px 7px 0;color:#5B6380;white-space:nowrap;vertical-align:top;border-bottom:1px solid #EEF0F6">${esc(k)}</td><td style="padding:7px 0;border-bottom:1px solid #EEF0F6">${esc(v)}</td></tr>`)
+    .join('')}</table>`;
+const panel = (path: string) => (config.adminPanelUrl ? { text: 'Open in admin', url: `${config.adminPanelUrl}/${path}` } : undefined);
+
+async function sendAdmin(subject: string, html: string, attachments?: { filename: string; content: Buffer; contentType?: string; contentId?: string }[]) {
+  if (!resend || !config.adminNotifyEmail) return;
+  try {
+    const { error } = await resend.emails.send({ from: config.resend.from, to: config.adminNotifyEmail, subject, html, attachments });
+    if (error) console.warn('[email] admin send failed', error.message);
+  } catch (e: any) {
+    console.warn('[email] admin error', e?.message);
+  }
+}
+
 // All senders are fire-and-forget: callers never await failures into the request path.
 export const emails = {
   newRequest(toId: string, fromName: string, score: number) {
@@ -111,7 +142,7 @@ export const emails = {
       approved ? 'Your profile is verified' : 'We couldn’t verify your profile',
       layout(
         approved ? 'You’re verified' : 'Verification needs another try',
-        approved ? p('Your identity was confirmed. A verified badge now shows on your profile.') : p('We couldn’t confirm your identity from the documents you sent.') + (note ? p(`Reason: ${esc(note)}`) : '') + p('You can submit new documents from Settings.'),
+        approved ? p('Your identity was confirmed. A verified badge now shows on your profile.') : p('We couldn’t confirm your identity from the documents you sent.') + (note ? p(`Reason: ${esc(note)}`) : '') + p('Please correct this and submit new photos from Settings, under Identity verification.'),
         approved ? 'View my profile' : 'Try again',
         approved ? '/me' : '/verify',
       ),
@@ -129,6 +160,40 @@ export const emails = {
         approved ? 'Open Match360' : 'View payment',
         approved ? '/discover' : '/premium',
       ),
+    );
+  },
+  premiumGranted(toId: string, months: number, until: Date | null) {
+    void send(
+      toId,
+      'You have Match360 Premium',
+      layout('Premium is active', p(`The Match360 team has given your account Premium for ${months === 12 ? '1 year' : months === 1 ? '1 month' : `${months} months`}${until ? `. It is active until ${until.toDateString()}` : ''}.`) + p('It works on the website and in the app with this account.'), 'Open Match360', '/discover'),
+    );
+  },
+  /** Team: a member sent a direct payment. The slip is shown in the email and the button opens the review page. */
+  adminPayment(d: { member: string; email: string; plan: string; amount: string; method: string; reference: string; sender: string }, reviewUrl: string, slip: { bytes: Buffer; contentType: string } | null) {
+    const ext = slip?.contentType.includes('png') ? 'png' : slip?.contentType.includes('webp') ? 'webp' : 'jpg';
+    void sendAdmin(
+      `Payment to confirm: ${d.amount} from ${d.member || d.email}`,
+      adminLayout(
+        'A payment is waiting for you',
+        rows([['Member', `${d.member || 'No name yet'} (${d.email})`], ['Plan', d.plan], ['Amount', d.amount], ['Paid by', d.method], ['Transaction ID', d.reference], ['Sender', d.sender]]) +
+          (slip ? `<p style="margin:18px 0 6px;color:#5B6380;font-size:13px">Payment slip</p><img src="cid:slip" alt="Payment slip" style="max-width:100%;border-radius:10px;border:1px solid #DDE1EC" />` : '<p style="margin-top:18px;color:#5B6380">No slip was attached.</p>') +
+          '<p style="margin-top:18px;color:#5B6380;font-size:13px">Check the transaction in your Easypaisa, JazzCash or bank account before approving. The button opens a page where you approve or reject it; the link works for 14 days.</p>',
+        { text: 'Review and approve', url: reviewUrl },
+      ),
+      slip ? [{ filename: `slip.${ext}`, content: slip.bytes, contentType: slip.contentType, contentId: 'slip' }] : undefined,
+    );
+  },
+  adminReport(d: { reported: string; reportedEmail: string; reporter: string; reason: string; details: string; total: number }) {
+    void sendAdmin(
+      `New report: ${d.reason} (${d.reported || 'member'})`,
+      adminLayout('A member was reported', rows([['Reported member', `${d.reported || 'No name yet'} (${d.reportedEmail})`], ['Reported by', d.reporter], ['Reason', d.reason], ['What happened', d.details], ['Reports against this member', String(d.total)]]), panel('reports')),
+    );
+  },
+  adminVerification(d: { member: string; email: string; docType: string }) {
+    void sendAdmin(
+      `Verification to review: ${d.member || d.email}`,
+      adminLayout('A member asked to be verified', rows([['Member', `${d.member || 'No name yet'} (${d.email})`], ['Document', d.docType]]) + '<p style="margin-top:14px;color:#5B6380;font-size:13px">Documents are only shown inside the admin panel.</p>', panel('verifications')),
     );
   },
   newMessage(toId: string, fromName: string, matchId: string) {

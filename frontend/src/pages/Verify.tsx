@@ -74,7 +74,7 @@ export default function VerifyPage() {
       ) : (
         <div className="mt-8">
           {v?.status === 'rejected' && (
-            <div className="mb-6 rounded-xl bg-wrong/10 p-4 text-sm text-wrong">Your last submission wasn’t approved{v.note ? `: ${v.note}` : '.'} Please try again with clear photos.</div>
+            <div className="mb-6 rounded-xl bg-wrong/10 p-4 text-sm text-wrong"><b>Your last submission wasn’t approved.</b>{v.note ? <> Reason: {v.note}</> : null} Correct this and submit new photos below.</div>
           )}
           <ol className="space-y-6">
             <li>

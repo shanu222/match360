@@ -6,7 +6,8 @@ import { api, errMsg } from '../lib/api';
 import { useToast } from '../context/Toast';
 import { Modal, Spinner } from './ui';
 
-const REASONS = ['Fake profile or scam', 'Inappropriate messages', 'Harassment', 'Inappropriate photos', 'Underage user', 'Something else'];
+const REASONS = ['Fake profile or scam', 'Inappropriate messages', 'Harassment', 'Inappropriate photos', 'Underage user', 'Asking for money', 'Something else'];
+const MIN_DETAILS = 10;
 
 export function SafetyModal({ open, onClose, userId, name }: { open: boolean; onClose: () => void; userId: string; name: string }) {
   const qc = useQueryClient();
@@ -56,9 +57,10 @@ export function SafetyModal({ open, onClose, userId, name }: { open: boolean; on
           </label>
         ))}
       </div>
-      {reason && <textarea className="input mt-3 min-h-[80px] resize-none" maxLength={1000} value={details} onChange={(e) => setDetails(e.target.value)} placeholder="Anything else we should know? (optional)" />}
+      {reason && <textarea className="input mt-3 min-h-[80px] resize-none" maxLength={1000} value={details} onChange={(e) => setDetails(e.target.value)} placeholder="Briefly, what happened? (required)" />}
+      {reason && details.trim().length < MIN_DETAILS && <p className="mt-1.5 text-xs text-slate">Write a short reason so our team can act on it (at least {MIN_DETAILS} characters).</p>}
       <div className="mt-5 grid gap-2">
-        <button className="btn btn-primary" disabled={!reason || busy} onClick={report}>
+        <button className="btn btn-primary" disabled={!reason || details.trim().length < MIN_DETAILS || busy} onClick={report}>
           {busy ? <Spinner className="text-white" size={18} /> : <><ShieldAlert size={18} /> Report & block</>}
         </button>
         <button className="btn btn-ghost" disabled={busy} onClick={block}>Just block {name}</button>

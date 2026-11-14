@@ -158,7 +158,7 @@ function Notifications({ open, onClose }: { open: boolean; onClose: () => void }
             key={n.id}
             onClick={() => {
               close();
-              nav(n.type === 'accepted' && n.ref_id ? `/chats/${n.ref_id}` : '/requests');
+              nav(n.type === 'accepted' && n.ref_id ? `/chats/${n.ref_id}` : n.type === 'verification' ? '/verify' : n.type === 'premium' ? '/premium' : '/requests');
             }}
             className={clsx('flex w-full items-center gap-3 rounded-2xl p-3 text-left transition hover:bg-paper', !n.read && 'bg-card')}
           >

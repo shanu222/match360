@@ -36,6 +36,7 @@ export interface UserRow {
   status: string;
   status_reason: string;
   premium_until: Date | null;
+  store_premium_until: Date | null;
   threshold: number;
   onboarded: boolean;
   incognito: boolean;

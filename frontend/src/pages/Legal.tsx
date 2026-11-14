@@ -20,7 +20,7 @@ const DOCS: Record<Kind, Doc> = {
         'Photos you choose to upload, and a blurred copy of each that we create on your device.',
         'Identity verification documents and a selfie, if you choose to verify.',
         'Purchase records: the Premium plan you bought and its renewal or expiry dates, which we receive from Google Play through our purchases provider, RevenueCat. We never see your card or payment details.',
-        'For direct payments made before Premium moved to Google Play (Easypaisa, JazzCash or bank transfer): plan, payment method, transaction ID, sender name or number, and an optional receipt screenshot.',
+        'For direct payments on the website (Easypaisa, JazzCash or bank transfer): plan, payment method, transaction ID, sender name or number, and the payment slip you upload.',
         'Messages you send, your answers to profile questions and results, reports and blocks.',
       ]],
       ['Information collected automatically', [
@@ -69,7 +69,8 @@ const DOCS: Record<Kind, Doc> = {
       ['Your content', ['You own what you post. You give us a worldwide, non-exclusive, royalty-free licence to host, display and process it to operate and improve Match360. Do not post anything you do not have the right to share.']],
       ['Conduct', ['Follow our Community Guidelines. We may remove content, limit features, suspend or permanently ban accounts that break these terms, at our discretion and without notice where safety requires it.']],
       ['Premium and payments', [
-        'Premium is a paid subscription. It is sold in the Match360 Android app through Google Play, and the price is shown before you pay. Premium works on the website and in the app with the same account.',
+        'Premium is a paid subscription. In the Match360 Android app it is sold through Google Play, and the price is shown before you pay. Premium works on the website and in the app with the same account.',
+        'Until the Match360 iPhone app is available, iPhone and desktop members can pay on the website by Easypaisa, JazzCash or bank transfer. These payments are activated after we confirm them and do not renew automatically.',
         'Subscriptions bought through Google Play are billed by Google and its terms also apply. They renew automatically until you cancel in Google Play.',
         'Premium given to an account by our team does not renew. See our Refund Policy.',
       ]],
@@ -118,7 +119,7 @@ const DOCS: Record<Kind, Doc> = {
     intro: 'We want you to be happy with Premium. Here is how refunds work.',
     sections: [
       ['Google Play purchases', [`Premium is bought through Google Play, and refunds follow Google Play’s policy. Request a refund in Google Play, or email ${EMAIL} and we will help.`]],
-      ['Earlier direct payments', [`If you paid by Easypaisa, JazzCash or bank transfer before Premium moved to Google Play and we could not confirm it, email ${EMAIL} with your receipt and we will either activate Premium or return the money to the account it came from.`]],
+      ['Direct payments', [`If you paid on the website by Easypaisa, JazzCash or bank transfer and we could not confirm it, email ${EMAIL} with your receipt and we will either activate Premium or return the money to the account it came from. You can ask for a full refund within 7 days of activation if you have not used Premium features heavily.`]],
       ['Removed accounts', ['Accounts removed for breaking our Terms or Community Guidelines are not eligible for refunds.']],
       ['Timing', ['Refunds we approve ourselves are sent within 10 business days to the original payment account. Google Play refunds follow Google’s own timing.']],
     ],

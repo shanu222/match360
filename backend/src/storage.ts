@@ -71,6 +71,17 @@ export async function signPrivateGet(key: string | null | undefined) {
   if (!key || !r2Enabled()) return null;
   return getSignedUrl(s3(), new GetObjectCommand({ Bucket: bucketFor(key), Key: objectKey(key) }), { expiresIn: 600 });
 }
+/** Reads a private file into memory. Only used for small images (payment slips are capped at 5 MB on upload). */
+export async function getPrivateBytes(key: string | null | undefined): Promise<{ bytes: Buffer; contentType: string } | null> {
+  if (!key || !r2Enabled()) return null;
+  try {
+    const r = await s3().send(new GetObjectCommand({ Bucket: bucketFor(key), Key: objectKey(key) }));
+    if (!r.Body) return null;
+    return { bytes: Buffer.from(await r.Body.transformToByteArray()), contentType: r.ContentType || 'image/jpeg' };
+  } catch {
+    return null;
+  }
+}
 export async function deletePrivate(keys: (string | null | undefined)[]) {
   if (!r2Enabled()) return;
   for (const key of keys) {
