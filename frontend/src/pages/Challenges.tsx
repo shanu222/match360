@@ -68,7 +68,7 @@ function Received({ r }: { r: RequestItem }) {
   return (
     <div className={clsx('card p-4 sm:p-5', r.status !== 'pending' && 'opacity-80')}>
       <div className="flex items-center gap-4">
-        <button onClick={() => nav(`/u/${u.id}`)} className="shrink-0"><Avatar src={u.photos[0]} name={u.name} className="h-14 w-14" /></button>
+        <button onClick={() => nav(`/u/${u.id}`)} className="relative shrink-0"><Avatar src={u.photos[0]} name={u.name} className="h-14 w-14" />{(u.online || u.activeRecently) && <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card bg-right" title="Online" />}</button>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 font-bold">
             <span className="truncate">{u.firstName}{u.age ? `, ${u.age}` : ''}</span>
@@ -134,7 +134,7 @@ function Sent({ r }: { r: RequestItem }) {
             : 'Connection ended';
   return (
     <div className="card flex items-center gap-4 p-4">
-      <button onClick={() => nav(`/u/${u.id}`)} className="shrink-0"><Avatar src={u.photos[0]} name={u.name} className="h-14 w-14" /></button>
+      <button onClick={() => nav(`/u/${u.id}`)} className="relative shrink-0"><Avatar src={u.photos[0]} name={u.name} className="h-14 w-14" />{(u.online || u.activeRecently) && <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card bg-right" title="Online" />}</button>
       <div className="min-w-0 flex-1">
         <div className="truncate font-bold">{u.name}</div>
         <div className="truncate text-sm text-slate">{label}</div>

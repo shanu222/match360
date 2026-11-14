@@ -1,4 +1,5 @@
 import { countryName, distanceKm } from './geo.js';
+import { presence } from './presence.js';
 
 export interface UserRow {
   id: string;
@@ -67,6 +68,7 @@ export function compat(me: Pick<UserRow, 'interests' | 'intent' | 'city'> | null
 }
 
 const ACTIVE_MS = 5 * 60_000;
+const NEW_MS = 7 * 24 * 3600_000;
 
 /**
  * Profile as other members see it. Never includes email, exact birthday or coordinates.
@@ -115,6 +117,9 @@ export function publicProfile(u: UserRow, viewer: UserRow | null, opts: { connec
     sharedInterests: c.shared,
     distanceKm: distance,
     activeRecently: Date.now() - new Date(u.last_seen).getTime() < ACTIVE_MS,
+    // Connected right now on the website or in the app (the same for both), or seen in the last few minutes.
+    online: presence.isOnline(u.id) || Date.now() - new Date(u.last_seen).getTime() < ACTIVE_MS,
+    isNew: Date.now() - new Date(u.created_at).getTime() < NEW_MS,
     lastSeen: u.last_seen,
   };
 }

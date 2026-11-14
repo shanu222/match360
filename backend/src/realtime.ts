@@ -3,9 +3,9 @@ import { Server } from 'socket.io';
 import { config } from './config.js';
 import { verifyToken } from './auth.js';
 import { q } from './db.js';
+import { presence } from './presence.js';
 
 let io: Server | null = null;
-const online = new Map<string, number>();
 
 export function initRealtime(server: HttpServer) {
   io = new Server(server, {
@@ -28,7 +28,7 @@ export function initRealtime(server: HttpServer) {
   io.on('connection', (socket) => {
     const uid: string = socket.data.uid;
     socket.join(`user:${uid}`);
-    online.set(uid, (online.get(uid) || 0) + 1);
+    presence.add(uid);
     q('UPDATE users SET last_seen=now() WHERE id=$1', [uid]).catch(() => {});
 
     socket.on('typing', (p: { matchId?: string; to?: string }) => {
@@ -38,15 +38,13 @@ export function initRealtime(server: HttpServer) {
     });
 
     socket.on('disconnect', () => {
-      const n = (online.get(uid) || 1) - 1;
-      if (n <= 0) online.delete(uid);
-      else online.set(uid, n);
+      presence.remove(uid);
       q('UPDATE users SET last_seen=now() WHERE id=$1', [uid]).catch(() => {});
     });
   });
 }
 
-export const isOnline = (uid: string) => (online.get(uid) || 0) > 0;
+export const isOnline = (uid: string) => presence.isOnline(uid);
 
 export function emit(uid: string, event: string, payload: unknown) {
   io?.to(`user:${uid}`).emit(event, payload);

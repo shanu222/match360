@@ -90,11 +90,16 @@ export function ProfileView({ p, self = false, heroClass = 'h-[420px]' }: { p: P
             <div className="mt-0.5 text-[11px] font-medium text-slate">in common</div>
           </div>
         )}
+        {p.isNew && !self && <div className="absolute left-4 top-6 rounded-lg bg-marker px-2.5 py-1 text-xs font-bold text-ink shadow-pop">New here</div>}
         <div className="absolute inset-x-5 bottom-4 text-white">
           <div className="flex items-center gap-2 font-display text-[30px] font-bold leading-tight">
             <span className="truncate">{p.firstName}{p.age ? `, ${p.age}` : ''}</span>
             {p.verified && <Verified size={22} />}
-            {p.activeRecently && !self && <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-right ring-4 ring-white/25" title="Active now" />}
+            {(p.online || p.activeRecently) && !self && (
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-1 font-sans text-xs font-semibold leading-none text-white">
+                <span className="h-2 w-2 rounded-full bg-right" />Online
+              </span>
+            )}
           </div>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-white/90">
             <span className="inline-flex items-center gap-1.5"><Briefcase size={14} />{p.job}</span>

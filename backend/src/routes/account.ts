@@ -10,6 +10,7 @@ import { ALLOWED_TYPES, MAX_UPLOAD_BYTES, deletePhotos, deletePrivate, getPrivat
 import express from 'express';
 import { r2Enabled } from '../config.js';
 import { reviewQuery } from '../premium.js';
+import { presence } from '../presence.js';
 import { actionLink, clearStatusCache, deleteFirebaseUser, forgetUser } from '../auth.js';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { citiesOf, countries, countryName, isCityOf, isCountry, nearestCity } from '../geo.js';
@@ -329,6 +330,8 @@ account.get('/discover', async (req, res) => {
   const country = str('country', 2)?.toUpperCase() || null;
   const city = str('city');
   const verified = req.query.verified === '1';
+  const onlineOnly = req.query.online === '1';
+  const onlineIds = presence.ids();
   const km = Number(req.query.km) || null;
   const nearOk = km && viewer.lat != null && viewer.lng != null;
   const genderPref = viewer.interested_in === 'Women' ? 'Woman' : viewer.interested_in === 'Men' ? 'Man' : null;
@@ -345,13 +348,22 @@ account.get('/discover', async (req, res) => {
        AND ($6::text IS NULL OR u.gender=$6)
        AND ($7::float8 IS NULL OR (u.lat IS NOT NULL AND
             6371 * 2 * asin(sqrt(power(sin(radians(u.lat-$8)/2),2) + cos(radians($8))*cos(radians(u.lat))*power(sin(radians(u.lng-$9)/2),2))) <= $7))
+       AND ($12::boolean = false OR u.id = ANY($13::text[]) OR u.last_seen > now() - interval '5 minutes')
      ORDER BY (u.premium_until > now()) DESC NULLS LAST,
               cardinality(ARRAY(SELECT unnest(u.interests) INTERSECT SELECT unnest($10::text[]))) DESC,
               (u.intent = $11) DESC, u.last_seen DESC
      LIMIT 40`,
-    [viewer.id, intent, country, city, verified, genderPref, nearOk ? km : null, viewer.lat, viewer.lng, viewer.interests, viewer.intent],
+    [viewer.id, intent, country, city, verified, genderPref, nearOk ? km : null, viewer.lat, viewer.lng, viewer.interests, viewer.intent, onlineOnly, onlineIds],
   );
-  res.json({ profiles: r.rows.map((u) => publicProfile(u, viewer)) });
+  // How many members the viewer could meet are online now (not counting themselves, hidden or blocked accounts).
+  const oc = await q<{ n: number }>(
+    `SELECT count(*)::int AS n FROM users u
+     WHERE u.id <> $1 AND u.onboarded AND NOT u.incognito AND u.status='active'
+       AND (u.id = ANY($2::text[]) OR u.last_seen > now() - interval '5 minutes')
+       AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id=$1 AND b.blocked_id=u.id) OR (b.blocker_id=u.id AND b.blocked_id=$1))`,
+    [viewer.id, onlineIds],
+  );
+  res.json({ profiles: r.rows.map((u) => publicProfile(u, viewer)), onlineCount: oc.rows[0]?.n || 0 });
 });
 
 account.post('/passes', async (req, res) => {
