@@ -104,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refetchMe: () => void meQ.refetch(),
       signOut: async () => {
         disconnectSocket();
+        if (isAndroidApp) await import('../native/billing').then((m) => m.signOutBilling()).catch(() => {});
         localStorage.removeItem('m360_test_token');
         if (auth) await fbSignOut(auth).catch(() => {});
         if (isAndroidApp) await import('../native/googleSignIn').then((m) => m.nativeSignOut()).catch(() => {});

@@ -51,6 +51,12 @@ export const config = {
     logging: process.env.AI_LOGGING !== 'false',
   },
   r2Private: process.env.R2_PRIVATE_BUCKET || '',
+  revenuecat: {
+    // Google Play purchases made in the Android app (see routes/billing.ts).
+    webhookAuth: (process.env.REVENUECAT_WEBHOOK_AUTH || '').trim(),
+    secretKey: (process.env.REVENUECAT_SECRET_KEY || '').trim(),
+    entitlement: (process.env.REVENUECAT_ENTITLEMENT || 'premium').trim(),
+  },
   resend: {
     apiKey: process.env.RESEND_API_KEY || '',
     from: process.env.RESEND_FROM || 'Match360 <onboarding@resend.dev>',

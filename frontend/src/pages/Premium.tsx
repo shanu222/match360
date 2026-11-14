@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
@@ -10,8 +10,9 @@ import { uploadBlob } from '../lib/upload';
 import type { Payment } from '../lib/types';
 import { useToast } from '../context/Toast';
 import { ErrorState, FullScreenLoader, Spinner } from '../components/ui';
-import { isAndroidApp } from '../lib/platform';
-import { playBillingAvailable } from '../native/billing';
+import { isAndroidApp, openExternal } from '../lib/platform';
+import { useAuth } from '../context/AuthContext';
+import { MANAGE_URL, listPremiumPlans, playBillingAvailable, purchasePremium, restorePremium, type PlayPlan } from '../native/billing';
 
 const money = (n: number, c: string) => (c === 'USD' ? `$${n.toFixed(2)}` : `Rs ${Math.round(n).toLocaleString()}`);
 
@@ -92,7 +93,7 @@ export default function PremiumPage() {
         <ul className="mt-6 grid gap-2 sm:grid-cols-2">
           {perks.map((p) => <li key={p} className="flex items-start gap-2.5"><Check size={18} className="mt-0.5 shrink-0 text-right" />{p}</li>)}
         </ul>
-        {/* Google Play Billing goes here once it is implemented in native/billing.ts. */}
+        {playBillingAvailable && <PlayPurchase premium={c.premium} />}
         {!c.premium && !playBillingAvailable && (
           <p className="mt-8 rounded-xl border border-rule bg-card p-4 text-sm text-slate">Premium can’t be purchased in the app yet. If your account already has Premium, it is active here automatically.</p>
         )}
@@ -196,6 +197,101 @@ export default function PremiumPage() {
       )}
       {pending.length > 0 && <p className="mt-3 text-sm text-slate">Payments are usually confirmed within a few hours. You’ll get an email when it’s done.</p>}
       <p className="mt-8 text-sm text-slate">See our <Link to="/refunds" className="text-cobalt underline">Refund policy</Link> and <Link to="/terms" className="text-cobalt underline">Terms</Link>.</p>
+    </div>
+  );
+}
+
+/**
+ * Android app only: buy Premium with Google Play. Plans and prices come from Google Play through RevenueCat.
+ * The backend turns Premium on after it has confirmed the purchase, so this waits for that before saying "active".
+ */
+function PlayPurchase({ premium }: { premium: boolean }) {
+  const { me, refetchMe } = useAuth();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const uid = me?.user.id || '';
+  const plans = useQuery({ queryKey: ['playPlans', uid], queryFn: () => listPremiumPlans(uid), enabled: Boolean(uid) && !premium, staleTime: 5 * 60_000, retry: 1 });
+  const [picked, setPicked] = useState('');
+  const [busy, setBusy] = useState<'' | 'buy' | 'restore'>('');
+  const [err, setErr] = useState('');
+  const list = plans.data || [];
+  const plan: PlayPlan | undefined = list.find((p) => p.id === picked) || list.find((p) => p.period === 'year') || list[0];
+  useEffect(() => setErr(''), [picked]);
+
+  /** Asks the backend to confirm the purchase with RevenueCat; retries briefly because the store can lag a few seconds. */
+  const activate = async () => {
+    for (let i = 0; i < 8; i++) {
+      const r = await api.post<{ premium: boolean }>('/billing/sync').catch(() => null);
+      if (r?.premium) break;
+      await new Promise((ok) => setTimeout(ok, 2500));
+    }
+    await qc.invalidateQueries({ queryKey: ['config'] });
+    refetchMe();
+    return Boolean(qc.getQueryData<{ premium: boolean }>(['config'])?.premium);
+  };
+
+  const run = async (kind: 'buy' | 'restore') => {
+    if (!uid || busy) return;
+    setErr('');
+    setBusy(kind);
+    try {
+      if (kind === 'buy') {
+        if (!plan || !(await purchasePremium(uid, plan.id))) return;
+      } else if (!(await restorePremium(uid))) {
+        return setErr('No Premium purchase was found for the Google account on this phone.');
+      }
+      if (await activate()) toast({ title: 'Premium is active', body: 'Thank you for supporting Match360.', tone: 'success' });
+      else toast({ title: 'Payment received', body: 'Premium will switch on in a moment. If it doesn’t, tap Restore purchases.', tone: 'success' });
+    } catch (e) {
+      setErr(errMsg(e));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  if (premium) {
+    return (
+      <div className="mt-8 rounded-xl border border-rule bg-card p-4 text-sm text-slate">
+        Bought through Google Play? You can change or cancel your subscription in Google Play at any time.
+        <button className="btn btn-ghost mt-3 w-full" onClick={() => openExternal(MANAGE_URL)}>Manage subscription <ExternalLink size={16} /></button>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-8">
+      <h2 className="text-xl font-bold">Choose a plan</h2>
+      {plans.isLoading && <div className="mt-4 flex justify-center py-6"><Spinner size={22} /></div>}
+      {!plans.isLoading && list.length === 0 && (
+        <p className="mt-4 rounded-xl border border-rule bg-card p-4 text-sm text-slate">
+          Plans couldn’t be loaded from Google Play right now. Check your connection and that you’re signed in to Google Play, then{' '}
+          <button className="text-cobalt underline" onClick={() => plans.refetch()}>try again</button>.
+        </p>
+      )}
+      {list.length > 0 && (
+        <>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {list.map((p) => (
+              <button key={p.id} onClick={() => setPicked(p.id)} aria-pressed={plan?.id === p.id} className={clsx('rounded-xl border-2 bg-card p-4 text-left transition-colors', plan?.id === p.id ? 'border-cobalt' : 'border-rule')}>
+                <span className="font-semibold">{p.name}</span>
+                <div className="mt-2 font-display text-2xl font-bold">{p.price}</div>
+                <div className="text-sm text-slate">{p.period ? `every ${p.period}` : 'one payment'}{p.perMonth ? `, ${p.perMonth} a month` : ''}</div>
+              </button>
+            ))}
+          </div>
+          <button onClick={() => run('buy')} disabled={Boolean(busy) || !plan} className="btn btn-primary mt-5 w-full">
+            {busy === 'buy' ? <Spinner size={18} className="text-white" /> : 'Continue with Google Play'}
+          </button>
+          {plan?.recurring && (
+            <p className="mt-3 text-sm text-slate">
+              {plan.price} is charged to your Google Play account every {plan.period} until you cancel. Cancel any time in Google Play, under Payments and subscriptions.
+            </p>
+          )}
+        </>
+      )}
+      {err && <p role="alert" className="mt-4 rounded-xl bg-wrong/10 px-4 py-3 text-sm text-wrong">{err}</p>}
+      <button onClick={() => run('restore')} disabled={Boolean(busy)} className="btn btn-quiet mt-3 w-full text-sm">
+        {busy === 'restore' ? <Spinner size={16} /> : 'Restore purchases'}
+      </button>
     </div>
   );
 }

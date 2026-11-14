@@ -1,7 +1,7 @@
 {
   "name": "match360-frontend",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -26,6 +26,7 @@
     "@capacitor/status-bar": "^8.0.4",
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
     "@fontsource-variable/figtree": "^5.3.0",
+    "@revenuecat/purchases-capacitor": "^14.1.0",
     "@tanstack/react-query": "^5.107.1",
     "clsx": "^2.1.1",
     "firebase": "^13.3.0",

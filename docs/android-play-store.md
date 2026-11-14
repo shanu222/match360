@@ -156,3 +156,26 @@ The account has a complete profile. To give it Premium (no ads), open the web ad
 ## AdMob consent message
 
 AdMob > Privacy & messaging > European regulations > create a message for the Match360 app and publish it. Until one exists the app shows ads without a consent prompt, which is not allowed for users in the EEA, UK and Switzerland. "Privacy choices" in Settings opens the form once it exists.
+
+## Buying Premium in the app (Google Play Billing through RevenueCat)
+
+From version 1.1.0 the Android app sells Premium with Google Play Billing, using RevenueCat. The website's manual payment methods are still never shown in the app.
+
+How it fits together:
+
+- **App** (`frontend/src/native/billing.ts`, `frontend/src/pages/Premium.tsx`): shows the packages of the current RevenueCat offering with Google Play's prices, opens Google's purchase sheet, and offers "Restore purchases". The RevenueCat customer ID is the Match360 account ID.
+- **Backend** (`backend/src/routes/billing.ts`): `POST /api/webhooks/revenuecat` is called by RevenueCat on every purchase, renewal, cancellation, refund and expiry. `POST /api/billing/sync` is called by the app right after a purchase. Both read the entitlement from RevenueCat's API and set the Premium end date. The app is never trusted to grant Premium.
+- **Database**: `users.store_premium_until` holds the store's end date; `users.premium_until` stays the effective date. Premium granted on the website or by an admin that runs longer than the store subscription is not shortened.
+
+Configuration:
+
+| Where | Name | Value |
+| --- | --- | --- |
+| `frontend/.env.android` | `VITE_REVENUECAT_ANDROID_KEY` | RevenueCat public SDK key for the Play Store app (`goog_…`). Public by design. Never a `test_` key. |
+| Railway (backend) | `REVENUECAT_WEBHOOK_AUTH` | A long random string. Must equal the "Authorization header value" of the webhook in RevenueCat. |
+| Railway (backend) | `REVENUECAT_SECRET_KEY` | RevenueCat secret API key (`sk_…`). Backend only. |
+| Railway (backend) | `REVENUECAT_ENTITLEMENT` | `premium` (the default; only set it if the entitlement is named differently). |
+
+RevenueCat: entitlement `premium`, with the Play subscription products attached, and a `default` offering with one package per plan. Webhook URL: `https://<backend host>/api/webhooks/revenuecat`.
+
+Play Console: subscription products for Match360 with an active base plan each; licence testers under Settings > Licence testing; "Purchase history" added to Data safety (collected, not shared, app functionality, required for buyers).

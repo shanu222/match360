@@ -12,6 +12,7 @@ import { initRealtime } from './realtime.js';
 import { account, citiesHandler, countriesHandler, metaHandler, resetHandler, resetLimiter } from './routes/account.js';
 import { admin, adminEnabled } from './routes/admin.js';
 import { social } from './routes/social.js';
+import { billing, revenuecatWebhook } from './routes/billing.js';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -51,7 +52,9 @@ app.use('/api/admin', (req, res, next) => {
   res.set('X-Robots-Tag', 'noindex');
   next();
 }, admin);
-app.use('/api', requireAuth, account, social);
+// Called by RevenueCat (Google Play purchases); authenticated by its own shared secret, not a user token.
+app.post('/api/webhooks/revenuecat', revenuecatWebhook);
+app.use('/api', requireAuth, account, social, billing);
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found', code: 'not_found' }));
 app.use(errorHandler);
 
